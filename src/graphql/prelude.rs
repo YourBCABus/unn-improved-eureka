@@ -34,27 +34,42 @@ pub use {
     super::structs::*,
 };
 
-pub mod utility_fns {
+/// General utility functions for graphql-related things.
+/// 
+/// All of these functions are in the general scope of [the prelude][self],
+/// so it shouldn't be necessary to access this (hence the lack of `pub`).
+mod utility_fns {
     use super::*;
 
-    pub fn easy_build_schema() -> Arc<Schema> {
-        Arc::new(Schema::new(QueryRoot, MutationRoot, NoSubscription::new()))
+    /// Build a generic schema based on the types defined in the [graphql] module.
+    /// 
+    /// The print attribute will determine whether the schema should be printed to stdout.
+    /// 
+    /// TODO: Allow output to file location
+    pub fn easy_build_schema(print: bool) -> Arc<Schema> {
+        let schema = Arc::new(Schema::new(QueryRoot, MutationRoot, NoSubscription::new()));
+
+        if print {
+            println!("--------SCHEMA--------\n\n{}\n\n--------SCHEMA--------", schema.as_schema_language());
+        }
+
+        schema
     }
     
-    // pub fn get_dsv<T: From<>>(value: )
+    /// This is just a conversion helper function due to the weirdness around juniper's/graphql's "Scalar Value" confusion.
     pub fn get_dsv<T>(value: T) -> DSV
     where
         DSV: From<T>
         {
         DSV::from(value)
     }
-    
-    pub fn get_dsv_cloned<T>(value: T) -> DSV
+
+    /// Similar to [get_dsv], but it instead allows types implementing [ToOwned] to be similarly wrapped as owned types.
+    pub fn get_dsv_cloned<T>(value: &T) -> DSV
     where
-        T: ToOwned,
+        T: ToOwned + ?Sized,
         DSV: From<T::Owned>
         {
-        #[allow(clippy::redundant_clone)] // This isn't redundant, need to figure out why clippy is complaining.
         DSV::from(value.to_owned())
     }
 }

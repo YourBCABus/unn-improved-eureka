@@ -1,9 +1,18 @@
-pub mod add_teacher;
-pub mod delete_teacher;
+//! This module contains solely the [MutationRoot] struct.
+//! It only exists for organizational purposes.
+
+mod add_teacher;
+mod delete_teacher;
 
 use super::prelude::*;
 
 
+/// This is a memberless struct implementing all the mutations for `improved-eureka`.
+/// This includes:
+/// - `add_teacher(name?, id?) -> Teacher`
+/// - `delete_teacher() -> bool`
+/// 
+/// Generally, it will only be used as part of a [schema][super::Schema].
 pub struct MutationRoot;
 
 #[juniper::graphql_object(context = Context)]

@@ -1,7 +1,5 @@
+//! This is just a convenience module that wraps the most important items in `improved-eureka`'s [database][crate::database] module.
+//! Contained are glob imports of `database` and the [prepared] module.
+
 pub use super::*;
 pub use prepared::*;
-
-use std::sync::Arc;
-pub fn easy_build_db_context(client: Client) -> Arc<DbContext> {
-    Arc::new(DbContext { client })
-}

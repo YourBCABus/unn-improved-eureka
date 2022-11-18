@@ -9,10 +9,7 @@ use improved_eureka::preludes::{
         exec_graphql,
         graphiql_source,
     },
-    database::{
-        easy_build_db_context,
-        connect_with,
-    },
+    database::connect_with,
     utils::structs::*,
     verification::auth_all_method_gen,
 };
@@ -23,18 +20,18 @@ use warp::reject;
 
 #[tokio::main]
 async fn main() {
-    let client = match connect_with("localhost", "eureka").await {
+    let postgres_connect_result = connect_with("localhost", "eureka").await;
+    let db_ctx = match postgres_connect_result {
         Ok(client) => client,
         Err(e) => panic!("failed to connect to eureka db: {}", e),
     };
 
-    let schema = easy_build_schema();
-    let ctx = easy_build_db_context(client);
+    let schema = easy_build_schema(true);
 
 
     // Create warp "Filter"s (used as auto-cloned Arcs in this case).
     let schema = warp::any().map(move || Arc::clone(&schema));
-    let ctx = warp::any().map(move || Arc::clone(&ctx));
+    let ctx = warp::any().map(move || Arc::clone(&db_ctx));
 
     let authenticate = auth_all_method_gen();
 

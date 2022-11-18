@@ -66,12 +66,12 @@ make_static_enum_error! {
                 "db_failed" ==> |reason| {
                     "reason": reason,
                 };
-        /// S - Catch-all for other things.
-        Other(String)
-            => "Unknown server error",
-                "server_failed" ==> |reason| {
-                    "reason": reason,
-                };
+        // /// S - Catch-all for other things.
+        // Other(String)
+        //     => "Unknown server error",
+        //         "server_failed" ==> |reason| {
+        //             "reason": reason,
+        //         };
 }
 
 /// Executes the query get_teacher. Takes Context, an optional name, and an optional ID.
@@ -93,9 +93,9 @@ pub async fn get_teacher<S: ScalarValue>(
 
     match (id, name) {
         (Some(id_str), _) => {
-            let (id, teacher_id) = id_str.try_into_uuid().map_err(IdFormatError)?;
+            let (uuid, teacher_id) = id_str.try_into_uuid().map_err(IdFormatError)?;
     
-            if let Some(row) = get_teacher_row_by_id(id, ctx, gtbi).await? {
+            if let Some(row) = get_teacher_row_by_id(uuid, ctx, gtbi).await? {
                 row
                     .try_into()
                     .map_err(|err| OtherDbError(err))
@@ -119,6 +119,18 @@ pub async fn get_teacher<S: ScalarValue>(
     }
 }
 
+/// Does what it says. Gets the teacher row by ID, returning an ExecError if it fails.
+/// 
+/// Optimally, `gtbi` should be a reference to a memoized query obtained by 
+/// ```
+/// use crate::database::prepared::read;
+/// 
+/// let result = read::get_teacher_by_id_query(&ctx.db_context.client).await;
+/// let memoized = match result {
+///     Ok(query) => query,
+///     Err(e) => todo!("handle error: {}", e),
+/// };
+/// ```
 async fn get_teacher_row_by_id<S: ScalarValue>(uuid: Uuid, ctx: &Context, gtbi: &Statement) -> Result<Option<Row>, GetTeacherError<S>> {
     ctx.db_context.client
         .query_opt(gtbi, &[&uuid])
@@ -126,6 +138,18 @@ async fn get_teacher_row_by_id<S: ScalarValue>(uuid: Uuid, ctx: &Context, gtbi: 
         .map_err(|_| GetTeacherError::ExecError(DbExecError::GetById))
 }
 
+/// Does what it says. Gets the teacher row by Name, returning an ExecError if it fails.
+/// 
+/// Optimally, `gtbn` should be a reference to a memoized query obtained by 
+/// ```
+/// use crate::database::prepared::read;
+/// 
+/// let result = read::get_teacher_by_name_query(&ctx.db_context.client).await;
+/// let memoized = match result {
+///     Ok(query) => query,
+///     Err(e) => todo!("handle error: {}", e),
+/// };
+/// ```
 async fn get_teacher_row_by_name<S: ScalarValue>(name: &str, ctx: &Context, gtbn: &Statement) -> Result<Option<Row>, GetTeacherError<S>> {
     ctx.db_context.client
         .query_opt(gtbn, &[&name])

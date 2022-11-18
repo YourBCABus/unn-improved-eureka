@@ -36,12 +36,12 @@ make_static_enum_error! {
                 "db_failed" ==> |reason| {
                     "reason": reason,
                 };
-        /// S - Catch-all for other things.
-        Other(String)
-            => "Unknown server error",
-                "server_failed" ==> |reason| {
-                    "reason": reason,
-                };
+        // /// S - Catch-all for other things.
+        // Other(String)
+        //     => "Unknown server error",
+        //         "server_failed" ==> |reason| {
+        //             "reason": reason,
+        //         };
 }
 
 /// Executes the query get_teacher. Takes no parameters.
@@ -63,7 +63,18 @@ pub async fn all_teachers(
             .map_err(AllTeachersError::OtherDbError)
     ).collect()
 }
-
+/// Does what it says. Gets all of the teacher rows unconditionally, returning an ExecError if it fails.
+/// 
+/// Optimally, `at` should be a reference to a memoized query obtained by 
+/// ```
+/// use crate::database::prepared::read;
+/// 
+/// let result = read::all_teachers(&ctx.db_context.client).await;
+/// let memoized = match result {
+///     Ok(query) => query,
+///     Err(e) => todo!("handle error: {}", e),
+/// };
+/// ```
 async fn get_all_teachers(ctx: &Context, at: &Statement) -> Result<Vec<Row>, AllTeachersError> {
     ctx.db_context.client
         .query(at, &[])

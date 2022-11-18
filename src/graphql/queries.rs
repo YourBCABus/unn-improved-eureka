@@ -1,9 +1,17 @@
-pub mod get_teacher;
-pub mod all_teachers;
+//! This module contains solely the [QueryRoot] struct.
+//! It only exists for organizational purposes.
+
+mod get_teacher;
+mod all_teachers;
 
 use super::prelude::*;
 
-
+/// This is a memberless struct implementing all the queries for `improved-eureka`.
+/// This includes:
+/// - `get_teacher(name?, id?) -> Teacher`
+/// - `all_teachers() -> Teacher[]`
+/// 
+/// Generally, it will only be used as part of a [schema][super::Schema].
 pub struct QueryRoot;
 
 #[juniper::graphql_object(context = Context)]

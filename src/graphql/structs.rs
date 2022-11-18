@@ -1,14 +1,5 @@
 //! This module contains most of the structs for sending and processing during graphql query resolution.
-//! Structs in this include:
-//! - Teacher
-//! - TeacherId
-//! - TeacherName
 //! 
-//! - GraphQLAbsenceState
-//! - AbsenceState
-//! 
-//! - Period
-
 
 pub use teacher::*;
 pub use absence_state::*;
@@ -82,7 +73,7 @@ mod teacher {
 mod absence_state {
     use super::period::Period;
 
-    /// GraphQLAbsenceState is a struct representing the state of absence of its containing struct. (Currently, [Teacher].)
+    /// GraphQLAbsenceState is a struct representing the state of absence of its containing struct. (Currently, [Teacher][super::Teacher].)
     /// Because sum-type enums are not easily implemented by GraphQLObject, there are invalid yet representable states.
     /// Because of that, some leniency is allowed.
     /// - If `is_fully_absent` is true, the teacher is fully absent, full stop.

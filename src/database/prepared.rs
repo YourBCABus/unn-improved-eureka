@@ -1,4 +1,9 @@
+//! This crate contains [modifying] and [read] for the two flavors of SQL query.
+//! See their documentation for more information.
+
 pub mod modifying {
+    //! This module defines solely SQL queries that intend to modify the state of the database and/or the server.
+    //! If you want to add one, MAKE SURE THAT IT MODIFIES in at least one case.
     use crate::preludes::macros::define_shared_query_name;
 
     define_shared_query_name!(pub add_teacher_query: "INSERT INTO teachers (TeacherName) VALUES($1);");
@@ -7,6 +12,9 @@ pub mod modifying {
 }
 
 pub mod read {
+    //! This module defines solely SQL queries that do not and can not modify the state of the database and/or the server.
+    //! If you want to add one, MAKE SURE THAT IT DOES NOT MODIFY in ANY case.
+    
     use crate::preludes::macros::define_shared_query_name;
 
     define_shared_query_name!(pub all_teachers: "SELECT * FROM Teachers");

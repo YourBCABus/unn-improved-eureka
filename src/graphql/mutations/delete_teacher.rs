@@ -5,7 +5,7 @@ use crate::preludes::{
     database::*,
     graphql::*,
     macros::*,
-    utils::{ list_to_value, str_to_uuid },
+    utils::list_to_value,
 };
 
 make_unit_enum_error! {
@@ -44,6 +44,9 @@ make_static_enum_error! {
                 };
 }
 
+/// Executes the mutation delete_teacher. Takes Context and an ID.
+/// Returns nothing.
+/// TODO: Make this require auth.
 pub async fn delete_teacher(
     ctx: &Context,
     id: TeacherId,
@@ -60,6 +63,20 @@ pub async fn delete_teacher(
     delete_teacher_by_id(&id, ctx, dtq).await
 }
 
+/// Does what it says. Attempts to permanantly delete a teacher from the DB.
+/// May fail with an `IdDoesNotExist` error in the case of it not being a valid existent ID
+/// or an ExecError if it fails while deleting it.
+/// 
+/// Optimally, `dtq` should be a reference to a memoized query obtained by 
+/// ```
+/// use crate::database::prepared::modifying;
+/// 
+/// let result = modifying::delete_teacher_query(&ctx.db_context.client).await;
+/// let memoized = match result {
+///     Ok(query) => query,
+///     Err(e) => todo!("handle error: {}", e),
+/// };
+/// ```
 async fn delete_teacher_by_id(id: &Uuid, ctx: &Context, dtq: &Statement) -> Result<(), DeleteTeacherError> {
     let rows_modified = ctx.db_context.client
         .execute(dtq, &[&id])

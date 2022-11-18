@@ -62,7 +62,7 @@ macro_rules! build_error {
             let err_value = build_error! { impl bindings base_1_0; $cause; $($other_keys: $other_values,)*; };
             
             juniper::FieldError::new(
-                $crate::graphql::prelude::utility_fns::get_dsv_cloned($reason),
+                $crate::graphql::prelude::get_dsv_cloned($reason),
                 err_value
             )
         }

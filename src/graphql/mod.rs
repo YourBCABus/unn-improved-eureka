@@ -1,6 +1,9 @@
 //! This module provides access to most of the structs/wrapper structs necessary for running and setting up GraphQL
-//! For a blob import, it is encouraged to use `crate::graphql::prelude::*` or `crate::preludes::graphql::*` instead of
-//! `crate::graphql::*` for code cleanliness and consistency.
+//! For a blob import, it is encouraged to use [crate::graphql::prelude] or [crate::preludes::graphql] instead of
+//! crate::graphql::*` for code cleanliness and consistency.
+//! 
+//! 
+//! 
 
 pub mod structs;
 pub mod prelude;
