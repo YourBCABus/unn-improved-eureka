@@ -18,17 +18,6 @@ make_unit_enum_error! {
         Get => "retrieve_teacher_data"
 }
 
-// impl DbExecError {
-//     fn error_str(self) -> &'static str {
-//         use DbExecError::*;
-//         match self {
-//             Duplicate => "check_for_duplicates",
-//             Modify => "modify_teacher_table",
-//             Get => "retrieve_teacher_data",
-//         }
-//     }
-// }
-
 make_static_enum_error! {
     /// This struct contains all the possible error types that can occur when executing the all_teachers query.
     /// 1 is a client error (C), and 3 are server errors (S).
@@ -59,7 +48,9 @@ make_static_enum_error! {
 }
 
 
-
+/// Executes the mutation delete_teacher. Takes Context and an ID.
+/// Returns nothing.
+/// TODO: Make this require auth.
 pub async fn add_teacher(
     ctx: &Context,
     name: &str,
@@ -91,6 +82,19 @@ pub async fn add_teacher(
     }
 }
 
+/// Does what it says. Check whether the teacher.
+/// May fail with a DuplicateError error in the case of the name already being registered.
+/// 
+/// Optimally, `ctbn` should be a reference to a memoized query obtained by 
+/// ```
+/// use crate::database::prepared::read;
+/// 
+/// let result = read::check_teacher_by_name_query(&ctx.db_context.client).await;
+/// let ctbn = match result {
+///     Ok(query) => query,
+///     Err(e) => todo!("handle error: {}", e),
+/// };
+/// ```
 async fn check_teacher_duplicate(ctx: &Context, name: &str, ctbn: &Statement) -> Option<AddTeacherError> {
     use AddTeacherError::*;
     use self::DbExecError::*;
@@ -105,6 +109,19 @@ async fn check_teacher_duplicate(ctx: &Context, name: &str, ctbn: &Statement) ->
     }
 }
 
+/// Does what it says. Attempts to add a teacher to the DB.
+/// May fail with a DuplicateError error in the case of the name already being registered.
+/// 
+/// Optimally, `ctbn` should be a reference to a memoized query obtained by 
+/// ```
+/// use crate::database::prepared::read;
+/// 
+/// let result = read::teacher_id_by_name_query(&ctx.db_context.client).await;
+/// let ctbn = match result {
+///     Ok(query) => query,
+///     Err(e) => todo!("handle error: {}", e),
+/// };
+/// ```
 async fn add_teacher_to_db(ctx: &Context, name: &str, at: &Statement) -> Option<AddTeacherError> {
     use AddTeacherError::*;
     use self::DbExecError::*;

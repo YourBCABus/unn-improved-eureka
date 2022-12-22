@@ -1,6 +1,8 @@
 //! This module contains some utility macros. All custom macros in this crate should be defined here,
 //! but are encouraged to be reexported in other preludes.
 
+/// `lazy_memoize_query` expands into a local block with a memoized variable.
+/// It's mostly suggested to be used with [define_shared_query_name], to create a globally-memoized query.
 macro_rules! lazy_memoize_query {
     ($query_str:literal -> $client:expr) => {
         {
@@ -12,6 +14,8 @@ macro_rules! lazy_memoize_query {
 }
 pub(crate) use lazy_memoize_query as lazy_memoize_query;
 
+/// Creates a function that returns a memoized query for `tokio-postgres`.
+/// See [lazy_memoize_query] for more details.
 macro_rules! define_shared_query_name {
     ($(#[$attr:meta])* $qual:vis $shared_name:ident: $query_str:literal) => {
         paste::paste!{
@@ -24,6 +28,8 @@ macro_rules! define_shared_query_name {
 }
 pub(crate) use define_shared_query_name as define_shared_query_name;
 
+/// Stands for "with variable name".
+/// Returns a tuple of the variable's value and its stringified name.
 macro_rules! wvn {
     ($var:ident) => {
         ($var, stringify!($var))
@@ -31,6 +37,10 @@ macro_rules! wvn {
 }
 pub(crate) use wvn as wvn;
 
+/// Returns a result representing the optional query values for the given memoized function return values.
+/// 
+/// The error is a Vec of failed memoized prepared query names,
+/// and is mapped through `$mapper_fn` before being returned as an `Err()`.
 macro_rules! handle_prepared {
     ($($query_names:ident),+; $mapper_fn:expr) => {
         {
@@ -54,11 +64,17 @@ macro_rules! handle_prepared {
 }
 pub(crate) use handle_prepared as handle_prepared;
 
+/// A quick analog [juniper::FieldError] builder, specifically tailored to the format of errors returned by `improved-eureka`.
+/// First is the "reason" for the GraphQL error, next is what will be under the `cause` field of the error extensions.
+/// 
+/// Finally, you can define a list of `<literal>: <expr>,` pairs.
+/// 
+/// The above is a convience thing solely to account for the fact that
+/// juniper's [graphql_value][juniper::graphql_value] macro
+/// doesn't allow expressions directly as values.
 macro_rules! build_error {
     ($reason:literal; $cause:literal => { $($other_keys:literal: $other_values:expr,)* }) => {
         {
-
-            #[allow(clippy::match_single_binding)]
             let err_value = build_error! { impl bindings base_1_0; $cause; $($other_keys: $other_values,)*; };
             
             juniper::FieldError::new(
@@ -103,6 +119,10 @@ macro_rules! build_error {
 }
 pub(crate) use build_error as build_error;
 
+/// A macro to build a simple byte wrapping struct.
+/// It creates a new struct,
+/// automatically creating `new`, `slice`, and `mut_slice` methods,
+/// and also autoimplementing [Debug][std::fmt::Debug].
 macro_rules! byte_vec_wrapper {
     ($(#[$attr:meta])* $name:ident) => {
         $(#[$attr])*
@@ -143,6 +163,11 @@ macro_rules! byte_vec_wrapper {
 }
 pub(crate) use byte_vec_wrapper as byte_vec_wrapper;
 
+/// A macro to build a Uuid-wrapping struct.
+/// 
+/// Internally, it is a String, but with the `try_into_uuid` function, it will either return either
+/// - an Ok containing tuple (Uuid, IdWrapper)
+/// - or Err containing the internal String
 macro_rules! make_id_wrapper {
     (
         $(#[$attr:meta])*
@@ -194,6 +219,12 @@ macro_rules! make_id_wrapper {
 }
 pub(crate) use make_id_wrapper as make_id_wrapper;
 
+/// A macro to build a name-wrapping struct.
+/// 
+/// Internally, the wrapper contains an owned String and you can
+/// - access an immutable &str with `name_str`
+/// - consume the wrapper and get the inner string with `into_string`
+/// - get a cloned version of the string from just a reference with `clone_to_string`
 macro_rules! make_name_wrapper {
     (
         $(#[$attr:meta])*
@@ -231,6 +262,9 @@ macro_rules! make_name_wrapper {
 }
 pub(crate) use make_name_wrapper as make_name_wrapper;
 
+/// A macro used to make an error enum with unit fields, where each field is associated with a `&'static str`.
+/// 
+/// The enum has an associated function "error_str", which returns the string after the `<variant> =>`.
 macro_rules! make_unit_enum_error {
     (
         $(#[$attr:meta])*
@@ -261,6 +295,62 @@ macro_rules! make_unit_enum_error {
 }
 pub(crate) use make_unit_enum_error as make_unit_enum_error;
 
+/// A macro used to make an error enum with unit fields, where each field is associated with a `&'static str`.
+/// 
+/// The enum has an associated function "error_str", which returns the string after the `<variant> =>`.
+macro_rules! make_sql_enum {
+    (
+        $(#[$attr:meta])*
+        $qual:vis $name:ident
+        $($variant:ident => $mapped_val:literal)*
+    ) => {
+        paste::paste! {
+            $(#[$attr])*
+            #[derive(Debug, Clone, Copy)]
+            $qual enum $name {
+                $(
+                    #[doc = "The `" $variant "` state of the SQL enum."]
+                    $variant,
+                
+                )*
+            }
+
+            impl $name {
+                fn to_sql_type(self) -> &'static str {
+                    use $name::*;
+                    match self {
+                        $($variant => $mapped_val),*
+                    }
+                }
+                fn try_from_sql_type(name: &str) -> Result<Self, String> {
+                    use $name::*;
+                    match name {
+                        $($mapped_val => Ok($variant),)*
+                        _ => Err(format!("Unknown variant `{}`", name)),
+                    }
+                }
+
+                fn get_possibility_list() -> &'static [&'static str] {
+                    &[ $($mapped_val),* ]
+                }
+
+                fn get_sql_typedef() -> String {
+                    let mut out_string = String::default();
+                    out_string.push_str("ENUM (");
+
+                    $(out_string.push_str(concat!("'", $mapped_val, "', "));)*
+
+                    out_string.pop();
+                    out_string.pop();
+                    out_string.push_str(")");
+
+                    out_string
+                }
+            }
+        }
+    };
+}
+pub(crate) use make_sql_enum as make_sql_enum;
 
 macro_rules! make_static_enum_error {
     (

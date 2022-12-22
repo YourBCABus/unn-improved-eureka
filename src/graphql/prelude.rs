@@ -1,3 +1,10 @@
+//! A collection of things generally needed when dealing with implementing/using a GraphQL query or mutation.
+//! 
+//! Either this or [crate::preludes::graphql] are the recommended way to get access to the most important GraphQL items.
+//! 
+//! If you don't want to pollute your namespace, you still should be able to find this useful with 
+//! `use <this module>::{ item1, item_2 };`
+
 use std::sync::Arc;
 
 pub use crate::preludes::*;
@@ -56,7 +63,7 @@ mod utility_fns {
         schema
     }
     
-    /// This is just a conversion helper function due to the weirdness around juniper's/graphql's "Scalar Value" confusion.
+    /// This is just a conversion helper function due to the weirdness around juniper's/graphql's "Scalar Value".
     pub fn get_dsv<T>(value: T) -> DSV
     where
         DSV: From<T>

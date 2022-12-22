@@ -6,6 +6,8 @@ pub use absence_state::*;
 pub use period::*;
 
 mod teacher {
+    //! This module is just an organizational construct to contain everything only used by the [Teacher] struct.
+    
     use std::fmt::Display;
     
     use tokio_postgres::Row;
@@ -29,6 +31,7 @@ mod teacher {
     impl TryFrom<Row> for Teacher {
         type Error = String;
         fn try_from(row: Row) -> Result<Self, Self::Error> {
+            /// FIXME: Centralize this constant.
             const COL_NAMES: [&str; 2] = ["teacherid", "teachername"];
     
             match (row.try_get(COL_NAMES[0]), row.try_get(COL_NAMES[1])) {
@@ -71,6 +74,9 @@ mod teacher {
 
 
 mod absence_state {
+    //! This module is just an organizational construct to contain everything only used by the [GraphQLAbsenceState] and [AbsenceState] structs.
+
+
     use super::period::Period;
 
     /// GraphQLAbsenceState is a struct representing the state of absence of its containing struct. (Currently, [Teacher][super::Teacher].)
@@ -143,6 +149,8 @@ mod absence_state {
 }
 
 mod period {
+    //! This module is just an organizational construct to contain everything only used by the [Period] struct.
+    //! 
     use crate::utils::macros::{make_id_wrapper, make_name_wrapper};
 
     make_id_wrapper!{

@@ -11,6 +11,7 @@ pub type BoxError = Box<dyn StdError + Send + Sync>;
 
 /// Represents an error encountered because of an inability to deserialize bytes, whether internal or external.
 pub struct BodyDeserializeError {
+    /// Dynamic thread-safe boxed std::error::Error.
     cause: BoxError,
 }
 

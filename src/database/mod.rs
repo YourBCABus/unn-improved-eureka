@@ -11,9 +11,10 @@
 
 //! - [prepared::read] and [prepared::modifying], containing memoized functions for readonly and mutating SQL queries respectively.
 
-pub mod prepared;
-
 pub mod prelude;
+
+pub mod prepared;
+pub mod table_schemas;
 
 
 use tokio_postgres::{

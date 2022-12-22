@@ -50,7 +50,9 @@ struct HmacInfo {
     pub counter: Vec<u8>
 }
 
-fn hmac_map_header_filter(body: &[u8], signature: Option<String>, counter: Option<String>, client_id: Option<String>) -> Option<(Uuid, HmacInfo)> {
+/// This function is a utility function to condense the optional inputs and string-based uuid
+/// into a single Option containing the client UUID and the other HMAC info.
+fn hmac_map_header_mapper(body: &[u8], signature: Option<String>, counter: Option<String>, client_id: Option<String>) -> Option<(Uuid, HmacInfo)> {
     Some((
         str_to_uuid(&client_id?).ok()?,
         HmacInfo {
@@ -73,7 +75,7 @@ pub fn hmac_verify_filter() -> impl Filter<Extract = ((bool, Bytes),), Error = R
         .and(warp::header::optional("hmac-counter"))
         .and(warp::header::optional("hmac-client-id"))
         .map(|body: Bytes, signature, counter, client_id| (
-            hmac_map_header_filter(&body[..], signature, counter, client_id),
+            hmac_map_header_mapper(&body[..], signature, counter, client_id),
             body,
         ))
         .untuple_one()
