@@ -1,3 +1,5 @@
+//! This *private* module contains solely things things required to run and give the outputs of 
+
 use tokio_postgres::{Row, Statement};
 
 use crate::preludes::{

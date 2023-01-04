@@ -295,9 +295,9 @@ macro_rules! make_unit_enum_error {
 }
 pub(crate) use make_unit_enum_error as make_unit_enum_error;
 
-/// A macro used to make an error enum with unit fields, where each field is associated with a `&'static str`.
-/// 
-/// The enum has an associated function "error_str", which returns the string after the `<variant> =>`.
+/// A macro used to make an error enum to represent a SQL value.
+/// This probably should be improved in the future, but...
+/// TODO: MANY TO MANY FOR PERIODS.
 macro_rules! make_sql_enum {
     (
         $(#[$attr:meta])*
@@ -316,6 +316,7 @@ macro_rules! make_sql_enum {
             }
 
             impl $name {
+                /// Turn the Rust enum
                 fn to_sql_type(self) -> &'static str {
                     use $name::*;
                     match self {
@@ -352,6 +353,11 @@ macro_rules! make_sql_enum {
 }
 pub(crate) use make_sql_enum as make_sql_enum;
 
+/// This is a really powerful utility macro to make an enum which can directly
+/// represent and format an error that will be returned to the client.
+/// 
+/// This can represent both client errors and server errors in the SAME enum.
+/// FIXME: This documentation NEEDS to be improved. An example should be provided.
 macro_rules! make_static_enum_error {
     (
         $($scalar_value_param:ident;;)?
