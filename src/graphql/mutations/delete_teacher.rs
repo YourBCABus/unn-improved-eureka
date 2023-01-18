@@ -15,7 +15,7 @@ make_unit_enum_error! {
 }
 
 make_static_enum_error! {
-    /// This struct contains all the possible error types that can occur when executing the all_teachers query.
+    /// This struct contains all the possible error types that can occur when executing the delete_teacher mutation.
     /// 2 are client errors (C), and 2 are server errors (S).
     pub DeleteTeacherError;
         /// C - This id was not parseble in the correct format (UUID).

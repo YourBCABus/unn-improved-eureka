@@ -8,6 +8,8 @@ pub mod modifying {
 
     define_shared_query_name!(pub add_teacher_query: "INSERT INTO teachers (TeacherName) VALUES($1);");
 
+    define_shared_query_name!(pub update_teacher_query: "UPDATE teachers SET TeacherName = $2 WHERE TeacherId = $1;");
+
     define_shared_query_name!(pub delete_teacher_query: "DELETE FROM teachers WHERE TeacherId = $1;");
 }
 

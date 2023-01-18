@@ -1,0 +1,16 @@
+teachers:
+    teacherid:   (PRIMARY !NULL) uuid 
+    teachername: (UNIQUE  !NULL) varchar(255)
+
+    isabsent:    (        !NULL) bool
+    fullyabsent: (        !NULL) bool
+
+teachers_periods_absence_xref:
+    teacherid: (FOREIGN REFERENCES teacher(teacherid) !NULL) uuid
+    periodid:  (FOREIGN REFERENCES period (periodid ) !NULL) uuid
+    
+    (PRIMARY KEY CONSTRAINT (teacherid, periodid))
+
+periods:
+    periodid:   (PRIMARY !NULL) uuid 
+    periodname: (UNIQUE  !NULL) varchar(255)

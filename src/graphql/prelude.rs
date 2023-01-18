@@ -46,21 +46,26 @@ pub use {
 /// All of these functions are in the general scope of [the prelude][self],
 /// so it shouldn't be necessary to access this (hence the lack of `pub`).
 mod utility_fns {
+    use std::{path::Path, io::Write};
+
     use super::*;
 
     /// Build a generic schema based on the types defined in the [graphql] module.
     /// 
-    /// The print attribute will determine whether the schema should be printed to stdout.
-    /// 
-    /// TODO: Allow output to file location
-    pub fn easy_build_schema(print: bool) -> Arc<Schema> {
+    /// The print attribute will determine whether the schema should be printed to stdout/the file.
+    pub fn easy_schema(print: bool, file: Option<&Path>) -> Result<Arc<Schema>, std::io::Error> {
         let schema = Arc::new(Schema::new(QueryRoot, MutationRoot, NoSubscription::new()));
 
         if print {
-            println!("--------SCHEMA--------\n\n{}\n\n--------SCHEMA--------", schema.as_schema_language());
+            if let Some(path) = file {
+                let mut file = std::fs::File::create(path)?;
+                write!(file, "{}", schema.as_schema_language())?;
+            } else {
+                println!("--------SCHEMA--------\n\n{}\n\n--------SCHEMA--------", schema.as_schema_language());
+            }
         }
 
-        schema
+        return Ok(schema);
     }
     
     /// This is just a conversion helper function due to the weirdness around juniper's/graphql's "Scalar Value".

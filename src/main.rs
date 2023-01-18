@@ -5,7 +5,7 @@ use warp::Filter;
 
 use improved_eureka::preludes::{
     graphql::{
-        easy_build_schema,
+        easy_schema,
         exec_graphql,
         graphiql_source,
     },
@@ -26,7 +26,7 @@ async fn main() {
         Err(e) => panic!("failed to connect to eureka db: {}", e),
     };
 
-    let schema = easy_build_schema(true);
+    let schema = easy_schema(true, Some(std::path::Path::new("./schema.graphql"))).unwrap();
 
 
     // Create warp "Filter"s (used as auto-cloned Arcs in this case).

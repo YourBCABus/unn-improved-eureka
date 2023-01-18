@@ -3,6 +3,7 @@
 
 mod add_teacher;
 mod delete_teacher;
+mod update_teacher;
 
 use super::prelude::*;
 
@@ -23,6 +24,17 @@ impl MutationRoot {
     ) -> juniper::FieldResult<Teacher> {
         add_teacher
             ::add_teacher(ctx, &name)
+            .await
+            .map_err(IntoFieldError::into_field_error)
+    }
+
+    async fn update_teacher(
+        ctx: &Context,
+        id: TeacherId,
+        name: String,
+    ) -> juniper::FieldResult<Teacher> {
+        update_teacher
+            ::update_teacher(ctx, id, &name)
             .await
             .map_err(IntoFieldError::into_field_error)
     }
