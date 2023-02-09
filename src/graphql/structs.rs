@@ -151,6 +151,8 @@ mod absence_state {
 mod period {
     //! This module is just an organizational construct to contain everything only used by the [Period] struct.
     //! 
+    use tokio_postgres::Row;
+
     use crate::utils::macros::{make_id_wrapper, make_name_wrapper};
 
     make_id_wrapper!{
@@ -172,6 +174,25 @@ mod period {
         pub id: PeriodId,
         /// The name of the period. A String wrapper.
         pub name: PeriodName,
+    }
+
+    impl TryFrom<Row> for Period {
+        type Error = String;
+        fn try_from(row: Row) -> Result<Self, Self::Error> {
+            /// FIXME: Centralize this constant.
+            const COL_NAMES: [&str; 2] = ["periodid", "periodname"];
+    
+            match (row.try_get(COL_NAMES[0]), row.try_get(COL_NAMES[1])) {
+                (Ok(id), Ok(name)) => Ok(Period {
+                    id: PeriodId::new(&id),
+                    name: PeriodName::new(name), 
+                }),
+                (Ok(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[1]])),
+                (Err(_), Ok(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0]])),
+                (Err(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0], COL_NAMES[1]])),
+            }
+    
+        }
     }
 }
 

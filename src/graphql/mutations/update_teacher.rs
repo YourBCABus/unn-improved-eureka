@@ -74,7 +74,7 @@ pub async fn update_teacher(
     let old_teacher_state = get_teacher_by_id(&id, ctx, gtbi).await?;
     
     let new_teacher_name = Some(name).or(Some(old_teacher_state.name.name_str())).unwrap();
-    update_teacher_query(&id, new_teacher_name, ctx, utq).await?;
+    update_teacher_query(&id, (new_teacher_name, false, false), ctx, utq).await?;
 
     get_teacher_by_id(&id, ctx, gtbi).await
 }
@@ -96,9 +96,14 @@ async fn get_teacher_by_id(id: &Uuid, ctx: &Context, gtbi: &Statement) -> Result
 }
 
 
-async fn update_teacher_query(id: &Uuid, name: &str, ctx: &Context, utq: &Statement) -> Result<(), UpdateTeacherError> {
+async fn update_teacher_query(
+    id: &Uuid,
+    (name, is_absent, fully_absent): (&str, bool, bool),
+    ctx: &Context,
+    utq: &Statement,
+) -> Result<(), UpdateTeacherError> {
     let rows_modified = ctx.db_context.client
-        .execute(utq, &[&id, &name])
+        .execute(utq, &[&id, &name, &is_absent, &fully_absent])
         .await
         .map_err(|_| UpdateTeacherError::ExecError(DbExecError::Modify))?;
 
