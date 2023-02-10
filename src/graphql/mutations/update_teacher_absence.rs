@@ -134,7 +134,7 @@ pub async fn update_teacher_absence(
     clear_teacher_periods(&teacher_id, &transaction, cpft).await?;
     set_teacher_periods(&teacher_id, periods.iter().map(|p| p.id.uuid()), &transaction, atp).await?;
 
-    update_teacher_query(&teacher_id, (teacher_row.name.name_str(), periods.is_empty(), fully_absent), &transaction, utq).await?;
+    update_teacher_query(&teacher_id, (teacher_row.name.name_str(), !periods.is_empty(), fully_absent), &transaction, utq).await?;
 
     let teacher_row = get_teacher_by_id_query(&teacher_id, &transaction, gtbi).await?;
 
@@ -209,10 +209,7 @@ async fn set_teacher_periods(teacher_id: &Uuid, period_ids: impl Iterator<Item =
         .map(|period_id| async move {
             match transaction.execute(atp, &[&period_id, teacher_id]).await {
                 Ok(1) => Ok(()),
-                e =>  {
-                    dbg!(e);
-                    Err(UpdateTeacherAbsenceError::ExecError(DbExecError::SetPeriods))
-                },
+                _ => Err(UpdateTeacherAbsenceError::ExecError(DbExecError::SetPeriods)),
             }
         });
 
@@ -238,30 +235,3 @@ async fn update_teacher_query(
         Err(UpdateTeacherAbsenceError::TeacherIdDoesNotExist(id.to_string()))
     }
 }
-
-
-// /// Does what it says. Attempts to permanantly delete a teacher from the DB.
-// /// May fail with an `IdDoesNotExist` error in the case of it not being a valid existent ID
-// /// or an ExecError if it fails while deleting it.
-// /// 
-// /// Optimally, `dtq` should be a reference to a memoized query obtained by 
-// /// ```
-// /// use crate::database::prepared::modifying;
-// /// 
-// /// let result = modifying::delete_teacher_query(&ctx.db_context.client).await;
-// /// let memoized = match result {
-// ///     Ok(query) => query,
-// ///     Err(e) => todo!("handle error: {}", e),
-// /// };
-// /// ```
-// async fn delete_teacher_by_id(id: &Uuid, ctx: &Context, dtq: &Statement) -> Result<(), DeleteTeacherError> {
-//     let rows_modified = ctx.db_context.client
-//         .execute(dtq, &[&id])
-//         .await
-//         .map_err(|_| DeleteTeacherError::ExecError(DbExecError::Delete))?;
-//     if rows_modified == 1 {
-//         Ok(())
-//     } else {
-//         Err(DeleteTeacherError::IdDoesNotExist(id.to_string()))
-//     }
-// }
