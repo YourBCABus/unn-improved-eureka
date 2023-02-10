@@ -242,7 +242,7 @@ macro_rules! make_unit_enum_error {
             }
 
             impl $name {
-                fn error_str(self) -> &'static str {
+                pub fn error_str(self) -> &'static str {
                     use $name::*;
                     match self {
                         $($variant => $mapped_val),*

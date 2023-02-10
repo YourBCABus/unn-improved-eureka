@@ -1,13 +1,12 @@
-//! This module contains most of the structs for sending and processing during graphql query resolution.
-//! 
+//! This module contains the scalar values for usage during graphql query/mutation resolution.
 
 
 pub mod teacher {
-    //! This module is just an organizational construct to contain everything only used by the [Teacher] struct.
+    //! This module is just an organizational construct to contain everything primarily used by the [Teacher][super::super::teachers::Teacher] struct.
     
     use std::fmt::Display;
         
-    use crate::{preludes::graphql::{make_name_wrapper, make_id_wrapper}, macros::make_sql_enum};
+    use crate::preludes::graphql::{make_name_wrapper, make_id_wrapper};
 
 
     make_id_wrapper!{
@@ -22,7 +21,7 @@ pub mod teacher {
     }
 
     make_name_wrapper!{
-        /// The PeriodName's only job is to prevent a mix-and-match of different names.
+        /// The TeacherName's only job is to prevent a mix-and-match of different names.
         pub TeacherName
     }
 }
@@ -32,9 +31,7 @@ pub mod teacher {
 
 
 pub mod period {
-    //! This module is just an organizational construct to contain everything only used by the [Period] struct.
-    //! 
-    use tokio_postgres::Row;
+    //! This module is just an organizational construct to contain everything primarily used by the [Period] struct.
 
     use super::super::{make_id_wrapper, make_name_wrapper};
 

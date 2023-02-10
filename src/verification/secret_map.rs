@@ -1,6 +1,7 @@
+//! This module contains the 
 // TODO: Document
 
-use std::{collections::HashMap, sync::{ Arc, RwLock }};
+use std::{collections::HashMap, sync::{ Arc, Mutex, MutexGuard }, ops::DerefMut, fmt::Debug};
 
 use uuid::Uuid;
 
@@ -10,26 +11,26 @@ use super::Secret;
 type ArcHashmap = Arc<HashMap<Uuid, Arc<Secret>>>;
 
 /// A struct for easy wrapping of a thread-global client ID to client secret map.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct SecretMap {
     /// The actual data within the SecretMap. It's a shared, interior mutable, optional, shared hashmap from Uuids to shared secrets.
-    inner_map: Arc<RwLock<Option<ArcHashmap>>>,
+    inner_map: Mutex<Option<ArcHashmap>>,
 }
 
+#[allow(dead_code)]
 impl SecretMap {
     /// Create a struct that contains a SecretMap without initializing any data.
-    pub fn uninit() -> Self {
-        Self { inner_map: Arc::new(RwLock::new(None)) }
+    pub const fn uninit() -> Self {
+        Self { inner_map: Mutex::new(None) }
     }
 
     /// Returns either the contained or a newly-initialized ArcHashmap,
     /// only returning None if it failed to access or reset the underlying map.
     pub fn get_inner_map(&self) -> Option<ArcHashmap> {
-        let inner_opt_map = self.inner_map.read().ok()?;
+        let inner_opt_map = self.get_unwrapped_guard_opt();
         if let Some(inner_map) = inner_opt_map.as_ref() {
-            return Some(inner_map.clone());
+            return Some(Arc::clone(inner_map));
         }
-        drop(inner_opt_map);
 
         let new_inner = Arc::new(HashMap::new());
         if self.set_map_direct(new_inner.clone()) {
@@ -41,7 +42,7 @@ impl SecretMap {
 
     /// This gets a reference-counted clone of the HashMap containing the mapping.
     pub fn get(&self, key: &Uuid) -> Option<Arc<Secret>> {
-        self.get_inner_map()?.get(key).cloned()
+        self.get_unwrapped_guard_opt()?.get(key).cloned()
     }
 
     // TODO: Actually hook this up to the DB.
@@ -59,12 +60,59 @@ impl SecretMap {
     /// This function is used directly by the `set_map` and `get_inner_map` associated methods,
     /// This allows the inner map to be directly passed in rather than run through the [`ArcHashmap`] conversion. 
     fn set_map_direct(&self, arc_map: ArcHashmap) -> bool {
-        let guard = self.inner_map.write();
-        if let Ok(mut guard) = guard {
+
+        if let Some(mut guard) = self.get_guard_opt() {
             *guard = Some(arc_map);
             true
         } else {
             false
         }
     }
+
+    /// This function returns an [Option] of a custom guard for a ArcHashmap.
+    /// The custom guard allows for the usage of the ArcHashmap directly, instead of the nested `if` statements.
+    fn get_guard_opt(&self) -> Option<impl DerefMut<Target = Option<ArcHashmap>> + '_> {
+        let lock = self.inner_map.try_lock().ok()?;
+        Some(lock)
+    }
+
+    /// This function returns an [Option] of a custom guard for a ArcHashmap.
+    /// The custom guard allows for the usage of the ArcHashmap directly, instead of the nested `if` statements.
+    fn get_unwrapped_guard_opt(&self) -> Option<impl DerefMut<Target = ArcHashmap> + '_> {
+        let lock = self.inner_map.try_lock().ok()?;
+        SecretMapMutexGuardUnwrap::try_new(lock)
+    }
 }
+
+/// A struct that acts as if it were a `MutexGuard<'a, ArcHashmap>`,
+/// but which can be created from a `MutexGuard<'a, Option<ArcHashmap>>` (when the variant is `Some`).
+pub struct SecretMapMutexGuardUnwrap<'a>(
+    /// The inner mutex guard to protect
+    MutexGuard<'a, Option<ArcHashmap>>
+);
+
+impl<'a> SecretMapMutexGuardUnwrap<'a> {
+    /// Creates a SecretMapMutexGuardUnwrap that is guaranteed to never panic, despite calling `unwrap`.
+    /// 
+    /// If the guard contains a `None`, it will return `None`.
+    /// If it contains a `Some`, it will return a `Some(Self)`.
+    pub fn try_new(lock: MutexGuard<'a, Option<ArcHashmap>>) -> Option<Self> {
+        if lock.is_some() {
+            Some(Self(lock))
+        } else {
+            None
+        }
+    }
+}
+impl core::ops::Deref for SecretMapMutexGuardUnwrap<'_> {
+    type Target = ArcHashmap;
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref().unwrap()
+    }
+}
+impl core::ops::DerefMut for SecretMapMutexGuardUnwrap<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.as_mut().unwrap()
+    }
+}
+

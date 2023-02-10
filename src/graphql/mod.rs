@@ -38,6 +38,9 @@ pub struct Context {
 }
 
 impl Context {
+    /// Gets the MutexGuard for the db_context field.
+    /// 
+    /// Uses [tokio's Mutex][tokio::sync::Mutex] to retain the mutex across await points.
     pub async fn get_db_mut(&self) -> impl DerefMut<Target = DbContext> + '_ {
         self.db_context.lock().await
     }

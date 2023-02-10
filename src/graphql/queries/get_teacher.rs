@@ -1,9 +1,10 @@
+use std::borrow::Cow;
+
 use tokio_postgres::{Row, Statement};
 use uuid::Uuid;
 
 
 
-use crate::graphql_types::objects::absence_state::AbsenceState;
 use crate::preludes::graphql::helpers::teachers::PopulateTeacherAbsenceError;
 use crate::utils::list_to_value;
 use crate::database::prelude::*;
@@ -16,7 +17,6 @@ use crate::{
     },
     graphql_types::{
         teachers::*,
-        periods::Period,
         juniper_types::*,
     },
 };
@@ -31,9 +31,8 @@ use crate::macros::{
 make_unit_enum_error! {
     /// Database execution errors
     pub DbExecError
-        GetById => "get_teacher_by_id"
-        GetByName => "get_teacher_by_name"
-        GetPeriods => "get_teacher_periods"
+        ById => "teacher_by_id"
+        ByName => "teacher_by_name"
 }
 
 make_static_enum_error! {
@@ -42,16 +41,16 @@ make_static_enum_error! {
     /// 4 of the types are client errors (C), 4 are server errors (S).
     pub GetTeacherError;
         /// C - Signifies the passing of an incorrectly-formatted teacher ID (should be a UUID). 
-        IdFormatError(String)
+        IdFormatError(TeacherId)
             => "The teacher ID was incorrectly formatted",
                 "bad_id_format" ==> |bad_id| {
-                    "id": bad_id,
+                    "id": bad_id.id_str(),
                 };
         /// C - The teacher ID format was correct, but it doesn't refer to any existing teacher.
-        IdDoesNotExist(String)
+        IdDoesNotExist(Uuid)
             => "There is no teacher associated with this ID",
                 "id_does_not_exist" ==> |id| {
-                    "id": id,
+                    "id": id.to_string(),
                 };
         /// C - The teacher name doesn't refer to any existing teacher.
         NameDoesNotExist(String)
@@ -87,10 +86,10 @@ make_static_enum_error! {
                     "part_failed": error_type.error_str(),
                 };
         /// S - Something else went wrong with the database.
-        OtherDbError(String)
+        OtherDbError(Cow<'static, str>)
             => "Unknown database error",
                 "db_failed" ==> |reason| {
-                    "reason": reason,
+                    "reason": &*reason,
                 };
         // /// S - Catch-all for other things.
         // Other(String)
@@ -111,23 +110,22 @@ pub async fn get_teacher<S: ScalarValue>(
 
     let gtbi = read::get_teacher_by_id_query(db_client).await;
     let gtbn = read::get_teacher_by_name_query(db_client).await;
-    let gtp = read::get_periods_from_teacher_query(db_client).await;
 
-    let (gtbi, gtbn, gtp) = handle_prepared!(
-        gtbi, gtbn, gtp;
+    let (gtbi, gtbn) = handle_prepared!(
+        gtbi, gtbn;
         PreparedQueryError
     )?;
 
     let teacher_row: TeacherRow = match (id, name) {
         (Some(id_str), _) => {
-            let (uuid, teacher_id) = id_str.try_into_uuid().map_err(IdFormatError)?;
+            let (uuid, _) = id_str.try_into_uuid().map_err(IdFormatError)?;
     
             if let Some(row) = get_teacher_row_by_id(uuid, db_client, gtbi).await? {
                 row
                     .try_into()
                     .map_err(|err| OtherDbError(err))
             } else {
-                Err(IdDoesNotExist(teacher_id.into_string()))
+                Err(IdDoesNotExist(uuid))
             }
         },
         (None, Some(name)) => {
@@ -166,7 +164,7 @@ async fn get_teacher_row_by_id<S: ScalarValue>(uuid: Uuid, client: &Client, gtbi
     client
         .query_opt(gtbi, &[&uuid])
         .await
-        .map_err(|_| GetTeacherError::ExecError(DbExecError::GetById))
+        .map_err(|_| GetTeacherError::ExecError(DbExecError::ById))
 }
 
 /// Does what it says. Gets the teacher row by Name, returning an ExecError if it fails.
@@ -185,5 +183,5 @@ async fn get_teacher_row_by_name<S: ScalarValue>(name: &str, client: &Client, gt
     client
         .query_opt(gtbn, &[&name])
         .await
-        .map_err(|_| GetTeacherError::ExecError(DbExecError::GetByName))
+        .map_err(|_| GetTeacherError::ExecError(DbExecError::ByName))
 }

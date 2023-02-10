@@ -1,7 +1,7 @@
 //! This module mostly contains structs pertaining to web requests.
 //! Currently only encludes [BodyDeserializeError].
 
-use std::fmt;
+use std::{fmt, borrow::Cow};
 use std::error::Error as StdError;
 
 use warp::reject::Reject;
@@ -49,18 +49,27 @@ use crate::{
     database::table_schemas::Teachers::TeacherPresence::TeacherPresence,
 };
 use tokio_postgres::Row;
+use const_format::formatcp;
 
+
+/// The direct deserialization target of a `Teachers` table row.
 pub struct TeacherRow {
+    /// The id in the `teacherid` field.
     pub id: TeacherId,
+    
+    /// The name in the `teachername` field.
     pub name: TeacherName,
+
+    /// A combination of the `isabsent` and `fullyabsent` fields conglomerated into 1 enum.
     pub presence: TeacherPresence,
 }
 
 impl TryFrom<Row> for TeacherRow {
-    type Error = String;
+    type Error = Cow<'static, str>;
     fn try_from(row: Row) -> Result<Self, Self::Error> {
         /// FIXME: Centralize this constant.
         const COL_NAMES: [&str; 4] = ["teacherid", "teachername", "isabsent", "fullyabsent"];
+
 
         match (row.try_get(COL_NAMES[0]), row.try_get(COL_NAMES[1])) {
             (Ok(id), Ok(name)) => Ok(Self {
@@ -70,13 +79,12 @@ impl TryFrom<Row> for TeacherRow {
                     (Ok(_), Ok(true)) => TeacherPresence::FullAbsent,
                     (Ok(true), Ok(false)) => TeacherPresence::PartAbsent,
                     (Ok(false), Ok(false)) => TeacherPresence::FullPresent,
-                    (a, b) => Err(format!("Row does not contain valid absence state: {:?}, {:?}.", a, b))?,
+                    _ => Err(Cow::from("Row does not contain valid absence state"))?,
                 },
             }),
-            (Ok(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[1]])),
-            (Err(_), Ok(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0]])),
-            (Err(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0], COL_NAMES[1]])),
+            (Ok(_), Err(_)) => Err(formatcp!("Row does not contain {:?}", COL_NAMES[1]).into()),
+            (Err(_), Ok(_)) => Err(formatcp!("Row does not contain {:?}", COL_NAMES[0]).into()),
+            (Err(_), Err(_)) => Err(formatcp!("Row does not contain {:?}, {:?}", COL_NAMES[0], COL_NAMES[1]).into()),
         }
-
     }
 }

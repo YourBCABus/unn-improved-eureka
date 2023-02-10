@@ -1,4 +1,7 @@
-pub mod teachers {
+mod populate_absence_fn {
+    
+    use std::borrow::Cow;
+
     use uuid::Uuid;
 
     use crate::utils::list_to_value;
@@ -45,10 +48,10 @@ pub mod teachers {
                         "part_failed": error_type.error_str(),
                     };
             /// S - Something else went wrong with the database.
-            OtherDbError(String)
+            OtherDbError(Cow<'static, str>)
                 => "Unknown database error",
                     "db_failed" ==> |reason| {
-                        "reason": reason,
+                        "reason": &*reason,
                     };
             // /// S - Catch-all for other things.
             // Other(String)
@@ -98,9 +101,10 @@ pub mod teachers {
         periods.into_iter()
             .map(|period_row| Period
                 ::try_from(period_row)
-                .map_err(|err| PopulateTeacherAbsenceError::OtherDbError(err))
+                .map_err(PopulateTeacherAbsenceError::OtherDbError)
             )
             .collect()
     }
 
 }
+pub use populate_absence_fn::*;

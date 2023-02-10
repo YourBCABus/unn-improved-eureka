@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use tokio_postgres::Transaction;
 use uuid::Uuid;
 
@@ -6,7 +8,10 @@ use crate::utils::list_to_value;
 use crate::database::prelude::*;
 
 use crate::{
-    preludes::graphql::*,
+    preludes::graphql::{
+        teacher_helpers::populate_absence,
+        *,
+    },
     graphql_types::{
         teachers::*,
         periods::*,
@@ -34,16 +39,16 @@ make_static_enum_error! {
     /// 2 are client errors (C), and 3 are server errors (S).
     pub UpdateTeacherAbsenceError;
         /// C - This id was not parseble in the correct format (UUID).
-        TeacherIdFormatError(String)
+        TeacherIdFormatError(TeacherId)
             => "The teacher ID was incorrectly formatted",
                 "bad_id_format" ==> |id| {
-                    "id": id,
+                    "id": id.id_str(),
                 };
         /// C - There was no teacher associated with this ID.
-        TeacherIdDoesNotExist(String)
+        TeacherIdDoesNotExist(Uuid)
             => "There is no teacher associated with this ID",
                 "id_does_not_exist" ==> |id| {
-                    "id": id,
+                    "id": id.to_string(),
                 };
         /// C - There was no teacher associated with this ID.
         PeriodNameDoesNotExist(String)
@@ -72,10 +77,10 @@ make_static_enum_error! {
                     "part_failed": error_type.error_str(),
                 };
         /// S - Something went wrong.
-        Other(String)
+        Other(Cow<'static, str>)
             => "Unknown Error",
                 "server_err" ==> |error_type| {
-                    "err": error_type,
+                    "err": &*error_type,
                 };
 }
 
@@ -138,11 +143,11 @@ pub async fn update_teacher_absence(
 
     let teacher_row = get_teacher_by_id_query(&teacher_id, &transaction, gtbi).await?;
 
-    let teacher = helpers::teachers::populate_absence(teacher_row, transaction.client()).await
+    let teacher = populate_absence(teacher_row, transaction.client()).await
         .map_err(UpdateTeacherAbsenceError::PopulateError)?;
 
-    if let Err(e) = transaction.commit().await {
-        Err(UpdateTeacherAbsenceError::Other("transaction failed to commit".to_string()))
+    if transaction.commit().await.is_err() {
+        Err(UpdateTeacherAbsenceError::Other("transaction failed to commit".into()))
     } else {
         Ok(teacher)
     }
@@ -160,7 +165,7 @@ async fn get_teacher_by_id_query(id: &Uuid, transaction: &Transaction<'_>, gtbi:
                 .try_into()
                 .map_err(UpdateTeacherAbsenceError::Other)
         } else {
-            Err(UpdateTeacherAbsenceError::TeacherIdDoesNotExist(id.to_string()))
+            Err(UpdateTeacherAbsenceError::TeacherIdDoesNotExist(*id))
         }            
     } else {
         Err(UpdateTeacherAbsenceError::ExecError(DbExecError::GetTeacher))
@@ -173,7 +178,7 @@ async fn get_all_periods_query(transaction: &Transaction<'_>, apq: &Statement) -
             .into_iter()
             .map(|row| row.try_into())
             .collect::<Result<_, _>>()
-            .map_err(|e| UpdateTeacherAbsenceError::Other(format!("DESERIALIZATION ERROR: {}", e))),
+            .map_err(|e| UpdateTeacherAbsenceError::Other(format!("DESERIALIZATION ERROR: {}", e).into())),
         Err(_) => Err(UpdateTeacherAbsenceError::ExecError(DbExecError::GetAllPeriods)),
     }
 }
@@ -184,7 +189,7 @@ async fn get_periods_by_names_query(names: impl Iterator<Item = &str>, transacti
             match transaction.query_opt(pbn, &[&name]).await {
                 Ok(Some(period_row)) => match period_row.try_into() {
                     Ok(period) => Ok(period),
-                    Err(e) => Err(UpdateTeacherAbsenceError::Other(format!("DESERIALIZATION ERROR: {}", e))),
+                    Err(e) => Err(UpdateTeacherAbsenceError::Other(e)),
                 },
                 Ok(_) => Err(UpdateTeacherAbsenceError::PeriodNameDoesNotExist(name.to_string())),
                 Err(_) => Err(UpdateTeacherAbsenceError::ExecError(DbExecError::GetSomePeriods)),
@@ -232,6 +237,6 @@ async fn update_teacher_query(
     if rows_modified == 1 {
         Ok(())
     } else {
-        Err(UpdateTeacherAbsenceError::TeacherIdDoesNotExist(id.to_string()))
+        Err(UpdateTeacherAbsenceError::TeacherIdDoesNotExist(*id))
     }
 }

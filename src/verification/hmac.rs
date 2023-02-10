@@ -63,10 +63,9 @@ fn hmac_map_header_mapper(body: &[u8], signature: Option<String>, counter: Optio
     ))
 }
 
+/// The map that contains the secrets required
+static SECRET_MAP: SecretMap = SecretMap::uninit();
 
-lazy_static::lazy_static! {
-    static ref SECRET_MAP: SecretMap = SecretMap::uninit();
-}
 
 /// Returns a filter that checks the ROLLING HMAC validity of the request ONLY, returning true if the request passes and false otherwise.
 pub fn hmac_verify_filter() -> impl Filter<Extract = ((bool, Bytes),), Error = Rejection> + Clone {

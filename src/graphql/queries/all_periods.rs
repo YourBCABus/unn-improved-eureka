@@ -1,6 +1,8 @@
 //! This *private* module contains solely things things required to run and give the outputs of 
 
 
+use std::borrow::Cow;
+
 use crate::utils::list_to_value;
 use crate::database::prelude::*;
 
@@ -41,10 +43,10 @@ make_static_enum_error! {
                     "part_failed": error_type.error_str(),
                 };
         /// S - Something else went wrong with the database.
-        OtherDb(String)
+        OtherDb(Cow<'static, str>)
             => "Unknown database error",
                 "db_failed" ==> |reason| {
-                    "reason": reason,
+                    "reason": &*reason,
                 };
         // /// S - Catch-all for other things.
         // Other(String)
@@ -70,10 +72,6 @@ pub async fn all_periods(
     period_rows.into_iter().map(
         |row| row
             .try_into()
-            .map_err(|e| {
-                println!("ERROR: {}", e);
-                e
-            })
             .map_err(AllPeriodsError::OtherDb)
     ).collect()
 }

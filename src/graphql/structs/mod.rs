@@ -1,19 +1,29 @@
+//! This module contains most of the structs compatible with graphql query/mutation resolution.
+
 pub mod scalars;
 pub mod objects;
 
 pub use super::Context;
 
 pub mod teachers {
+    //! Contains all of the structs specific to [Teachers][Teacher].
     pub use super::scalars::teacher::*;
     pub use super::objects::teacher::*;
 }
 
+pub mod absence_state {
+    //! Contains all of the structs specific to absence states.
+    pub use super::objects::absence_state::*;
+}
+
 pub mod periods {
+    //! Contains all of the structs specific to [Periods][Period].
     pub use super::scalars::period::*;
     pub use super::objects::period::*;
 }
 
 pub mod juniper_types {
+    //! Contains some junipers types that are useful to have quick access to.
     pub use juniper::IntoFieldError;
     pub use juniper::ScalarValue;
     pub use juniper::Value as JuniperValue;
@@ -53,8 +63,7 @@ macro_rules! make_id_wrapper {
 
             /// Given that the internal id string came from a valid Uuid, this function should NEVER fail.
             pub fn uuid(&self) -> uuid::Uuid {
-                self.try_uuid().unwrap_or_default();
-                uuid::Uuid::try_from(self.id_str()).unwrap_or_default()
+                self.try_uuid().unwrap_or_default()
             }
 
             /// Will return an Ok((Uuid, Self)) if valid, otherwise returns Err(String).
@@ -63,10 +72,10 @@ macro_rules! make_id_wrapper {
             }
 
             /// Will return an Ok((Uuid, Self)) if valid, otherwise returns Err(String).
-            pub fn try_into_uuid(self) -> Result<(uuid::Uuid, Self), String> {
+            pub fn try_into_uuid(self) -> Result<(uuid::Uuid, Self), Self> {
                 match uuid::Uuid::try_from(self.id_str()) {
                     Ok(uuid) => Ok((uuid, self)),
-                    Err(_) => Err(self.into_string())
+                    Err(_) => Err(self)
                 }
             }
 

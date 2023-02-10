@@ -1,8 +1,9 @@
-
+//! This module contains the non-scalar output values for usage during graphql query/mutation resolution.
 
 pub mod teacher {
+    //! This module contains all the non-scalar GraphQL types that are mainly related to [Teachers][Teacher].
+    
     use std::fmt::Display;
-    use tokio_postgres::Row;
 
     use crate::utils::structs::TeacherRow;
 
@@ -22,6 +23,8 @@ pub mod teacher {
     }
 
     impl Teacher {
+        /// This constructs a new `Teacher` struct from a [TeacherRow] and an [AbsenceState].
+        /// This is useful for getting the full information of a teacher.
         pub fn from_row_and_state(row: TeacherRow, state: AbsenceState) -> Self {
             Self {
                 id: row.id,
@@ -31,37 +34,16 @@ pub mod teacher {
         }
     }
 
-    // impl TryFrom<Row> for Teacher {
-    //     type Error = String;
-    //     fn try_from(row: Row) -> Result<Self, Self::Error> {
-    //         /// FIXME: Centralize this constant.
-    //         const COL_NAMES: [&str; 4] = ["teacherid", "teachername", "isabsent", "fullyabsent"];
-    
-    //         match (row.try_get(COL_NAMES[0]), row.try_get(COL_NAMES[1])) {
-    //             (Ok(id), Ok(name)) => Ok(Teacher {
-    //                 id: TeacherId::new(&id),
-    //                 name: TeacherName::new(name), 
-    //                 absence_state: match (row.try_get(COL_NAMES[2]), row.try_get(COL_NAMES[3])) {
-    //                     (Ok(_), Ok(true)) => AbsenceState::FullyAbsent(Vec::new()),
-    //                     (Ok(true), Ok(false)) => AbsenceState::PartiallyAbsent(Vec::new()),
-    //                     (Ok(false), Ok(false)) => AbsenceState::Present,
-    //                     (a, b) => Err(format!("Row does not contain valid absence state: {:?}, {:?}.", a, b))?,
-    //                 }.into(),
-    //             }),
-    //             (Ok(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[1]])),
-    //             (Err(_), Ok(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0]])),
-    //             (Err(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0], COL_NAMES[1]])),
-    //         }
-    
-    //     }
-    // }
-    
     impl Display for Teacher {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "Teacher<{}> ({})", self.name.name_str(), self.id.id_str())
         }
     }
 
+    /// This struct represents a Teacher with no period information associated with the absence_state.
+    /// 
+    /// This is mainly used to be an graphql-compatible type for [TeacherRow],
+    /// and usually should be created with [From] or [Into].
     #[derive(juniper::GraphQLObject, Debug, Clone)]
     pub struct TeacherMetadata {
         /// The id of the teacher. This is essentially a wrapper for a UUID, but is (de)serializable for juniper.
@@ -84,10 +66,9 @@ pub mod teacher {
 }
 
 pub mod absence_state {
-    //! This module is just an organizational construct to contain everything only used by the [GraphQLAbsenceState] and [AbsenceState] structs.
-
-    use std::fmt::Display;
-    use tokio_postgres::Row;
+    //! This module contains all the non-scalar GraphQL types that are mainly related to 
+    //!  - [GraphQLAbsenceState outputs][GraphQLAbsenceState].
+    //!  - [AbsenceState enums][AbsenceState].
 
     use super::period::Period;
 
@@ -157,7 +138,10 @@ pub mod absence_state {
 }
 
 pub mod period {
-    use std::fmt::Display;
+    //! This module contains all the non-scalar GraphQL types that are mainly related to [Periods][Period].
+    
+    use std::borrow::Cow;
+    use const_format::formatcp;
     use tokio_postgres::Row;
 
     use super::super::scalars::period::*;
@@ -173,7 +157,7 @@ pub mod period {
     }
 
     impl TryFrom<Row> for Period {
-        type Error = String;
+        type Error = Cow<'static, str>;
         fn try_from(row: Row) -> Result<Self, Self::Error> {
             /// FIXME: Centralize this constant.
             const COL_NAMES: [&str; 2] = ["periodid", "periodname"];
@@ -183,9 +167,9 @@ pub mod period {
                     id: PeriodId::new(&id),
                     name: PeriodName::new(name), 
                 }),
-                (Ok(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[1]])),
-                (Err(_), Ok(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0]])),
-                (Err(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0], COL_NAMES[1]])),
+                (Ok(_), Err(_)) => Err(formatcp!("Row does not contain {:?}", COL_NAMES[1]).into()),
+                (Err(_), Ok(_)) => Err(formatcp!("Row does not contain {:?}", COL_NAMES[0]).into()),
+                (Err(_), Err(_)) => Err(formatcp!("Row does not contain {:?}, {:?}", COL_NAMES[0], COL_NAMES[1]).into()),
             }
     
         }

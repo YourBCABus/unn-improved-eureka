@@ -41,6 +41,7 @@ pub use {
 
     super::structs::*,
 };
+pub use helpers::teachers as teacher_helpers;
 
 /// General utility functions for graphql-related things.
 /// 
@@ -66,7 +67,7 @@ mod utility_fns {
             }
         }
 
-        return Ok(schema);
+        Ok(schema)
     }
     
     /// This is just a conversion helper function due to the weirdness around juniper's/graphql's "Scalar Value".

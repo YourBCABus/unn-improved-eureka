@@ -2,8 +2,6 @@
 #![allow(clippy::missing_docs_in_private_items)]
 
 pub mod Teachers {
-    use tokio_postgres::Row;
-
     pub mod TeacherId {
         pub type Type = uuid::Uuid;
         pub static COL_IDX: &str = "TeacherId";
@@ -29,7 +27,6 @@ pub mod Teachers {
     pub mod TeacherPresence {
         use crate::utils::macros::make_sql_enum;
         pub type Type = TeacherPresence;
-
 
         make_sql_enum!{
             pub TeacherPresence

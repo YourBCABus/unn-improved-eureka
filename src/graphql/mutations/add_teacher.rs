@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use uuid::Uuid;
 
 use crate::utils::list_to_value;
@@ -49,15 +51,28 @@ make_static_enum_error! {
                     "part_failed": error_type.error_str(),
                 };
         /// S - 
-        Other()
+        Other(Cow<'static, str>)
             => "Unknown server error",
-                "unknown" ==> | | {};
+                "unknown" ==> |error_type| {
+                    "err": &*error_type,
+                };
 }
 
 
-/// Executes the mutation delete_teacher. Takes Context and an ID.
-/// Returns nothing.
+/// Executes the mutation add_teacher. Takes Context and an ID.
+/// Returns TeacherMetadata, which should be sufficient, given that the teacher will be fully present anyway.
 /// TODO: Make this require auth.
+/// 
+/// ```ignore
+/// let name = "Mr. Smith";
+/// let db_client = /* get your database client here */;
+/// 
+/// match add_teacher(&db_client, name).await {
+///     Err(AddTeacherError::DuplicateError(id)) => println!("Duplicate found with id: {}", id),
+///     Err(err) => eprintln!("Some other error was encountered: {:?}", err),
+///     Ok(teacher) => println!("Teacher added successfully: {:?}", teacher),
+/// }
+/// ```
 pub async fn add_teacher(
     db_client: &mut Client,
     name: &str,
@@ -83,25 +98,27 @@ pub async fn add_teacher(
     }
 }
 
-/// Does what it says. Check whether the teacher.
+/// Does what it says. Checks whether the teacher exists by looking up its name.
 /// May fail with a DuplicateError error in the case of the name already being registered.
 /// 
-/// Optimally, `ctbn` should be a reference to a memoized query obtained by 
-/// ```
-/// use crate::database::prepared::read;
+/// Optimally, `ctbn` should be a reference to a memoized query found in the crate::database::prepared.
+/// ```ignore
+/// let db_client = /* get your database client here */;
+/// let gtbn_query = get_memoized_gtbn_query(&db_client).await.unwrap();
+///
+/// let name = "Mr. Smith";
 /// 
-/// let result = read::check_teacher_by_name_query(&ctx.db_context.client).await;
-/// let ctbn = match result {
-///     Ok(query) => query,
-///     Err(e) => todo!("handle error: {}", e),
-/// };
+/// match check_teacher_duplicate(&db_client, name, gtbn_query).await {
+///     Some(AddTeacherError::DuplicateError(id)) => println!("Duplicate found with id: {}", id),
+///     Some(err) => eprintln!("Duplicate check failed with error: {:?}", err),
+///     None => println!("No duplicate was found"),
+/// }
 /// ```
-async fn check_teacher_duplicate(db_client: &Client, name: &str, ctbn: &Statement) -> Option<AddTeacherError> {
+async fn check_teacher_duplicate(db_client: &Client, name: &str, gtbn: &Statement) -> Option<AddTeacherError> {
     use AddTeacherError::*;
     use self::DbExecError::*;
 
-
-    let query_result = db_client.query_opt(ctbn, &[&name]).await;
+    let query_result = db_client.query_opt(gtbn, &[&name]).await;
     if let Ok(returned_value) = query_result {
         returned_value
             .map(|dup_teacher| DuplicateError(dup_teacher.get("TeacherId")))
@@ -110,18 +127,19 @@ async fn check_teacher_duplicate(db_client: &Client, name: &str, ctbn: &Statemen
     }
 }
 
-/// Does what it says. Attempts to add a teacher to the DB.
-/// May fail with a DuplicateError error in the case of the name already being registered.
+/// Attempts to add a teacher to the DB.
 /// 
-/// Optimally, `ctbn` should be a reference to a memoized query obtained by 
-/// ```
-/// use crate::database::prepared::read;
+/// Optimally, `at` should be a reference to a memoized query.
+/// ```ignore
+/// let db_client = /* get your database client here */;
+/// let at_query = get_memoized_at_query(&db_client).await.unwrap();
+///
+/// let name = "Mr. Smith";
 /// 
-/// let result = read::teacher_id_by_name_query(&ctx.db_context.client).await;
-/// let ctbn = match result {
-///     Ok(query) => query,
-///     Err(e) => todo!("handle error: {}", e),
-/// };
+/// match add_teacher_to_db(&db_client, name, at_query).await {
+///     Some(err) => eprintln!("Adding the teacher failed: {:?}", err),
+///     None => println!("Teacher added successfully"),
+/// }
 /// ```
 async fn add_teacher_to_db(db_client: &Client, name: &str, at: &Statement) -> Option<AddTeacherError> {
     use AddTeacherError::*;
@@ -129,18 +147,27 @@ async fn add_teacher_to_db(db_client: &Client, name: &str, at: &Statement) -> Op
 
 
     let query_result = db_client.execute(at, &[&name]).await;
-    if let Ok(rows) = query_result {
-        if rows != 1 {
-
-            Some(Other())
-        } else {
-            None
-        }
+    if let Ok(1) = query_result {
+        None
     } else {
         Some(ExecError(Modify))
     }
 }
 
+/// Gets the full **metadata** for a teacher from the db.
+/// 
+/// Optimally, `gtbn` should be a reference to a memoized query.
+/// ```ignore
+/// let db_client = /* get your database client here */;
+/// let gtbn_query = get_memoized_gtbn_query(&db_client).await.unwrap();
+///
+/// let name = "Mr. Smith";
+/// 
+/// match get_teacher(&db_client, name, gtbn_query).await {
+///     Ok(teacher_row) => eprintln!("Teacher data: {:?}", teacher_row),
+///     Err(err) => eprintln!("Failed to retrieve teacher: {:?}", err),
+/// }
+/// ```
 async fn get_teacher(db_client: &Client, name: &str, gtbn: &Statement) -> Result<TeacherRow, AddTeacherError> {
     use AddTeacherError::*;
     use self::DbExecError::*;
@@ -149,7 +176,7 @@ async fn get_teacher(db_client: &Client, name: &str, gtbn: &Statement) -> Result
     if let Ok(Some(row)) = query_result {
         row
             .try_into()
-            .map_err(|_| Other())
+            .map_err(Other)
     } else {
         Err(ExecError(Get))
     }

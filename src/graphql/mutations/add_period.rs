@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use uuid::Uuid;
 
 use crate::utils::list_to_value;
@@ -47,15 +49,28 @@ make_static_enum_error! {
                     "part_failed": error_type.error_str(),
                 };
         /// S - 
-        Other()
+        Other(Cow<'static, str>)
             => "Unknown server error",
-                "unknown" ==> | | {};
+                "unknown" ==> |error_type| {
+                    "err": &*error_type,
+                };
 }
 
 
-/// Executes the mutation delete_teacher. Takes Context and an ID.
-/// Returns nothing.
+/// Executes the mutation add_period. Takes Context and an ID.
+/// Returns Period.
 /// TODO: Make this require auth.
+/// 
+/// ```ignore
+/// let name = "Period One";
+/// let db_client = /* get your database client here */;
+/// 
+/// match add_period(&db_client, name).await {
+///     Err(AddTeacherError::DuplicateError(id)) => println!("Duplicate found with id: {}", id),
+///     Err(err) => eprintln!("Some other error was encountered: {:?}", err),
+///     Ok(teacher) => println!("Period added successfully: {:?}", teacher),
+/// }
+/// ```
 pub async fn add_period(
     db_client: &mut Client,
     name: &str,
@@ -71,8 +86,6 @@ pub async fn add_period(
         AddPeriodError::PreparedQueryError
     )?;
 
-
-
     if let Some(duplicate_period) = get_period_by_name(db_client, name, pbn).await? {
         Err(AddPeriodError::DuplicateError(duplicate_period.id.uuid()))
     } else if let Some(modify_error) = add_period_to_db(db_client, name, ap).await {
@@ -84,37 +97,46 @@ pub async fn add_period(
     }
 }
 
-/// Does what it says. Attempts to add a teacher to the DB.
-/// May fail with a DuplicateError error in the case of the name already being registered.
+/// Attempts to add a period to the DB.
 /// 
-/// Optimally, `ctbn` should be a reference to a memoized query obtained by 
-/// ```
-/// use crate::database::prepared::read;
+/// Optimally, `ap` should be a reference to a memoized query.
+/// ```ignore
+/// let db_client = /* get your database client here */;
+/// let ap_query = get_memoized_ap_query(&db_client).await.unwrap();
+///
+/// let name = "Period One";
 /// 
-/// let result = read::teacher_id_by_name_query(&ctx.db_context.client).await;
-/// let ctbn = match result {
-///     Ok(query) => query,
-///     Err(e) => todo!("handle error: {}", e),
-/// };
+/// match add_period_to_db(&db_client, name, ap_query).await {
+///     Some(err) => eprintln!("Adding the period failed: {:?}", err),
+///     None => println!("Period added successfully"),
+/// }
 /// ```
 async fn add_period_to_db(db_client: &Client, name: &str, ap: &Statement) -> Option<AddPeriodError> {
     use AddPeriodError::*;
     use self::DbExecError::*;
 
-
     let query_result = db_client.execute(ap, &[&name]).await;
-    if let Ok(rows) = query_result {
-        if rows != 1 {
-
-            Some(Other())
-        } else {
-            None
-        }
+    if let Ok(1) = query_result {
+        None
     } else {
         Some(ExecError(Modify))
     }
 }
 
+/// Gets the full metedata for a period from the db.
+/// 
+/// Optimally, `gpbn` should be a reference to a memoized query.
+/// ```ignore
+/// let db_client = /* get your database client here */;
+/// let gpbn_query = get_memoized_gpbn_query(&db_client).await.unwrap();
+///
+/// let name = "Period One";
+/// 
+/// match get_period_by_name(&db_client, name, gpbn_query).await {
+///     Ok(period) => eprintln!("Period data: {:?}", period),
+///     Err(err) => eprintln!("Failed to retrieve period: {:?}", err),
+/// }
+/// ```
 async fn get_period_by_name(db_client: &Client, name: &str, gpbn: &Statement) -> Result<Option<Period>, AddPeriodError> {
     use AddPeriodError::*;
     use self::DbExecError::*;
@@ -122,7 +144,7 @@ async fn get_period_by_name(db_client: &Client, name: &str, gpbn: &Statement) ->
     let query_result = db_client.query_opt(gpbn, &[&name]).await;
     if let Ok(opt_period) = query_result {
         if let Some(period) = opt_period {
-            Ok(Some(period.try_into().map_err(|_| Other())?))
+            Ok(Some(period.try_into().map_err(Other)?))
         } else {
             Ok(None)
         }
