@@ -7,18 +7,21 @@
 
 pub mod structs;
 pub mod prelude;
+pub mod helpers;
 
 pub mod queries;
 pub mod mutations;
 
-use database::DbContext;
+use tokio::sync::Mutex;
+
+use super::database::DbContext;
 
 use crate::preludes::{
     graphql::*,
     verification::AuthenticationMethods,
 };
 
-use std::{convert::Infallible, sync::Arc};
+use std::{convert::Infallible, sync::Arc, ops::DerefMut};
 
 
 /// A Schema alias type used by the GraphQLRequest handler to run a GraphQL query.
@@ -29,9 +32,15 @@ pub type Schema = GraphQLRoot<'static, QueryRoot, MutationRoot, NoSubscription<C
 /// - db context
 pub struct Context {
     /// Database shared context. See [DbContext] for details.
-    pub db_context: Arc<DbContext>,
+    pub db_context: Arc<Mutex<DbContext>>,
     /// Per-request auth context. See [AuthenticationMethods] for details.
     pub auth_context: AuthenticationMethods,
+}
+
+impl Context {
+    pub async fn get_db_mut(&self) -> impl DerefMut<Target = DbContext> + '_ {
+        self.db_context.lock().await
+    }
 }
 
 impl juniper::Context for Context {}
@@ -48,7 +57,7 @@ impl juniper::Context for Context {}
 /// 
 pub async fn exec_graphql(
     schema: Arc<Schema>,
-    db_ctx: Arc<DbContext>,
+    db_ctx: Arc<Mutex<DbContext>>,
     auth_ctx: AuthenticationMethods,
     req: GraphQLRequest,
 ) -> Result<Box<dyn warp::Reply>, Infallible> {

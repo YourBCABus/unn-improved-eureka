@@ -2,6 +2,8 @@
 #![allow(clippy::missing_docs_in_private_items)]
 
 pub mod Teachers {
+    use tokio_postgres::Row;
+
     pub mod TeacherId {
         pub type Type = uuid::Uuid;
         pub static COL_IDX: &str = "TeacherId";

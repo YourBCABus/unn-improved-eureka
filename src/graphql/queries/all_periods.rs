@@ -1,12 +1,20 @@
 //! This *private* module contains solely things things required to run and give the outputs of 
 
-use tokio_postgres::{Row, Statement};
 
-use crate::preludes::{
-    database::*,
-    graphql::*,
-    macros::*,
-    utils::list_to_value,
+use crate::utils::list_to_value;
+use crate::database::prelude::*;
+
+use crate::{
+    preludes::graphql::*,
+    graphql_types::{
+        periods::*,
+    },
+};
+
+use crate::macros::{
+    handle_prepared,
+    make_unit_enum_error,
+    make_static_enum_error,
 };
 
 
@@ -48,16 +56,16 @@ make_static_enum_error! {
 
 /// Executes the query all_teachers. Takes no parameters.
 pub async fn all_periods(
-    ctx: &Context,
+    db_client: &mut Client,
 ) -> Result<Vec<Period>, AllPeriodsError> {
-    let at = read::all_periods_query(&ctx.db_context.client).await;
+    let at = read::all_periods_query(db_client).await;
 
     let at = handle_prepared!(
         at;
         AllPeriodsError::PreparedQuery
     )?;
 
-    let period_rows = get_all_periods(ctx, at).await?;
+    let period_rows = get_all_periods(db_client, at).await?;
 
     period_rows.into_iter().map(
         |row| row
@@ -81,8 +89,8 @@ pub async fn all_periods(
 ///     Err(e) => todo!("handle error: {}", e),
 /// };
 /// ```
-async fn get_all_periods(ctx: &Context, ap: &Statement) -> Result<Vec<Row>, AllPeriodsError> {
-    ctx.db_context.client
+async fn get_all_periods(db_client: &Client, ap: &Statement) -> Result<Vec<Row>, AllPeriodsError> {
+    db_client
         .query(ap, &[])
         .await
         .map_err(|error| {

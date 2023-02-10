@@ -1,11 +1,19 @@
-use tokio_postgres::Statement;
 use uuid::Uuid;
 
-use crate::preludes::{
-    database::*,
-    graphql::*,
-    macros::*,
-    utils::list_to_value,
+use crate::utils::list_to_value;
+use crate::database::prelude::*;
+
+use crate::{
+    preludes::graphql::*,
+    graphql_types::{
+        teachers::*,
+    },
+};
+
+use crate::macros::{
+    handle_prepared,
+    make_unit_enum_error,
+    make_static_enum_error,
 };
 
 make_unit_enum_error! {
@@ -48,10 +56,10 @@ make_static_enum_error! {
 /// Returns nothing.
 /// TODO: Make this require auth.
 pub async fn delete_teacher(
-    ctx: &Context,
+    db_client: &mut Client,
     id: TeacherId,
 ) -> Result<(), DeleteTeacherError> {
-    let dtq = modifying::delete_teacher_query(&ctx.db_context.client).await;
+    let dtq = modifying::delete_teacher_query(db_client).await;
 
     let dtq = handle_prepared!(
         dtq;
@@ -60,7 +68,7 @@ pub async fn delete_teacher(
     
     let (id, _) = id.try_into_uuid().map_err(DeleteTeacherError::IdFormatError)?;
 
-    delete_teacher_by_id(&id, ctx, dtq).await
+    delete_teacher_by_id(&id, db_client, dtq).await
 }
 
 /// Does what it says. Attempts to permanantly delete a teacher from the DB.
@@ -77,8 +85,8 @@ pub async fn delete_teacher(
 ///     Err(e) => todo!("handle error: {}", e),
 /// };
 /// ```
-async fn delete_teacher_by_id(id: &Uuid, ctx: &Context, dtq: &Statement) -> Result<(), DeleteTeacherError> {
-    let rows_modified = ctx.db_context.client
+async fn delete_teacher_by_id(id: &Uuid, db_client: &Client, dtq: &Statement) -> Result<(), DeleteTeacherError> {
+    let rows_modified = db_client
         .execute(dtq, &[&id])
         .await
         .map_err(|_| DeleteTeacherError::ExecError(DbExecError::Delete))?;

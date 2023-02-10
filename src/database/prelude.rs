@@ -3,3 +3,8 @@
 
 pub use super::*;
 pub use prepared::*;
+
+pub use tokio_postgres::{Row, Statement};
+pub use table_schemas::Teachers::TeacherPresence::TeacherPresence;
+pub use crate::utils::structs::TeacherRow;
+

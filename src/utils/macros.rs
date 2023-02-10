@@ -48,7 +48,7 @@ macro_rules! handle_prepared {
             let output = if let ($(Some($query_names)),+) = ($($query_names),+) {
                 Ok(($($query_names),+))
             } else {
-                let failed_queries = [$(wvn!($query_names)),+]
+                let failed_queries = [$($crate::utils::macros::wvn!($query_names)),+]
                     .into_iter()
                     .flat_map(
                         |(option, name)| option
@@ -64,6 +64,59 @@ macro_rules! handle_prepared {
 }
 pub(crate) use handle_prepared as handle_prepared;
 
+
+/// A quick analog [juniper::FieldError] builder, specifically tailored to the format of errors returned by `improved-eureka`.
+/// First is the "reason" for the GraphQL error, next is what will be under the `cause` field of the error extensions.
+/// 
+/// Finally, you can define a list of `<literal>: <expr>,` pairs.
+/// 
+/// The above is a convience thing solely to account for the fact that
+/// juniper's [graphql_value][juniper::graphql_value] macro
+/// doesn't allow expressions directly as values.
+macro_rules! build_error_value {
+    ($cause:literal => { $($other_keys:literal: $other_values:expr,)* }) => {
+        {
+            use juniper::graphql_value;
+            let err_value = $crate::utils::macros::build_error_value! { impl bindings base_1_0; $cause; $($other_keys: $other_values,)*; };
+            
+            err_value
+        }
+    };
+
+    (impl bindings $curr_name:ident; $cause:literal; ; $($proccessed_keys:literal: $bindings:ident,)*) => {
+        juniper::graphql_value!({
+            "cause": $cause,
+            $($proccessed_keys: $bindings),*
+        })
+    };
+
+    (impl bindings
+        $curr_name:ident; $cause:literal;
+        $key:literal: $value:expr, $($other_keys:literal: $other_values:expr,)*;
+        $($proccessed_keys:literal: $bindings:ident,)*
+    ) => {
+            paste::paste! {
+                {
+                    let [<$curr_name 0>] = $value;
+                    $crate::utils::macros::build_error_value! { impl bindings [<$curr_name 0>]; $cause; $($other_keys: $other_values,)*; $key: [<$curr_name 0>], $($proccessed_keys: $bindings,)*}
+                }
+            }
+    };
+
+    (impl val_gen $cause:literal; $curr_name:ident; ; $($other_keys:literal: $other_vals:ident,)*) => {
+        juniper::graphql_value!({
+            "cause": $cause,
+            $($other_keys: $other_vals),*
+        })
+    };
+
+    (impl val_gen $cause:literal; $curr_name:ident; $key:literal, $($unprocessed_keys:literal,)*; $($processed_keys:literal: $processed_vals:ident,)*) => {
+        paste::paste! {
+            build_error_value! { impl val_gen $cause; [<$curr_name 0>]; $($unprocessed_keys,)*; $($processed_keys: $processed_vals,)* $key: [<$curr_name 0>], }
+        }
+    };
+}
+pub(crate) use build_error_value as build_error_value;
 /// A quick analog [juniper::FieldError] builder, specifically tailored to the format of errors returned by `improved-eureka`.
 /// First is the "reason" for the GraphQL error, next is what will be under the `cause` field of the error extensions.
 /// 
@@ -75,7 +128,8 @@ pub(crate) use handle_prepared as handle_prepared;
 macro_rules! build_error {
     ($reason:literal; $cause:literal => { $($other_keys:literal: $other_values:expr,)* }) => {
         {
-            let err_value = build_error! { impl bindings base_1_0; $cause; $($other_keys: $other_values,)*; };
+            use juniper::graphql_value;
+            let err_value = $crate::utils::macros::build_error_value!($cause => { $($other_keys: $other_values,)* });
             
             juniper::FieldError::new(
                 $crate::graphql::prelude::get_dsv_cloned($reason),
@@ -99,7 +153,7 @@ macro_rules! build_error {
             paste::paste! {
                 {
                     let [<$curr_name 0>] = $value;
-                    build_error! { impl bindings [<$curr_name 0>]; $cause; $($other_keys: $other_values,)*; $key: [<$curr_name 0>], $($proccessed_keys: $bindings,)*}
+                    $crate::utils::macros::build_error! { impl bindings [<$curr_name 0>]; $cause; $($other_keys: $other_values,)*; $key: [<$curr_name 0>], $($proccessed_keys: $bindings,)*}
                 }
             }
     };
@@ -163,104 +217,9 @@ macro_rules! byte_vec_wrapper {
 }
 pub(crate) use byte_vec_wrapper as byte_vec_wrapper;
 
-/// A macro to build a Uuid-wrapping struct.
-/// 
-/// Internally, it is a String, but with the `try_into_uuid` function, it will either return either
-/// - an Ok containing tuple (Uuid, IdWrapper)
-/// - or Err containing the internal String
-macro_rules! make_id_wrapper {
-    (
-        $(#[$attr:meta])*
-        $qual:vis $struct_name:ident
-    ) => {
-        
-        $(#[$attr])*
-        #[derive(juniper::GraphQLScalarValue, Debug, Clone)]
-        $qual struct $struct_name(String);
 
-        impl $struct_name {
-            /// Create a new wrapper struct from a [Uuid]. Only create if the Uuid came from a valid teacher ID.
-            pub fn new(id: &uuid::Uuid) -> Self {
-                Self(id.to_string())
-            }
 
-            /// Returns a borrowed `&'a str` view of the struct. The str will only live as long as the struct. 
-            pub fn id_str(&self) -> &str {
-                &self.0
-            }
 
-            /// Given that the internal id string came from a valid Uuid, this function should NEVER fail.
-            pub fn uuid(&self) -> uuid::Uuid {
-                uuid::Uuid::try_from(self.id_str()).unwrap_or_default()
-            }
-
-            /// Will return an Ok(Uuid) if valid, otherwise returns Err(String).
-            pub fn try_into_uuid(self) -> Result<(uuid::Uuid, Self), String> {
-                match uuid::Uuid::try_from(self.id_str()) {
-                    Ok(uuid) => Ok((uuid, self)),
-                    Err(_) => Err(self.into_string())
-                }
-            }
-
-            /// Get the string inside of the struct.
-            /// Consumes the wrapper, and requires no references existing to the struct.
-            /// Use the method `clone_to_string` to get a string without consuming the struct.
-            pub fn into_string(self) -> String {
-                self.0
-            }
-
-            /// Get the string inside of the wrapper struct.
-            /// This method should only be used when `into_string` can't be.
-            pub fn clone_to_string(&self) -> String {
-                self.0.clone()
-            }
-        }
-    };
-}
-pub(crate) use make_id_wrapper as make_id_wrapper;
-
-/// A macro to build a name-wrapping struct.
-/// 
-/// Internally, the wrapper contains an owned String and you can
-/// - access an immutable &str with `name_str`
-/// - consume the wrapper and get the inner string with `into_string`
-/// - get a cloned version of the string from just a reference with `clone_to_string`
-macro_rules! make_name_wrapper {
-    (
-        $(#[$attr:meta])*
-        $qual:vis $struct_name:ident
-    ) => {
-        $(#[$attr])*
-        #[derive(juniper::GraphQLScalarValue, Debug, Clone)]
-        $qual struct $struct_name(String);
-
-        impl $struct_name {
-            /// Create a new wrapper struct from a String. Only create if the String came from a valid student name.
-            pub fn new(name: String) -> Self {
-                Self(name)
-            }
-
-            /// Returns a borrowed `&'a str` view of the struct. The str will only live as long as the struct. 
-            pub fn name_str(&self) -> &str {
-                &self.0
-            }
-
-            /// Get the string inside of the struct.
-            /// Consumes the wrapper, and requires no references existing to the struct.
-            /// Use the method `clone_to_string` to get a string without consuming the struct.
-            pub fn into_string(self) -> String {
-                self.0
-            }
-
-            /// Get the string inside of the wrapper struct.
-            /// This method should only be used when `into_string` can't be.
-            pub fn clone_to_string(&self) -> String {
-                self.0.clone()
-            }
-        }
-    };
-}
-pub(crate) use make_name_wrapper as make_name_wrapper;
 
 /// A macro used to make an error enum with unit fields, where each field is associated with a `&'static str`.
 /// 
@@ -317,13 +276,13 @@ macro_rules! make_sql_enum {
 
             impl $name {
                 /// Turn the Rust enum
-                fn to_sql_type(self) -> &'static str {
+                pub fn to_sql_type(self) -> &'static str {
                     use $name::*;
                     match self {
                         $($variant => $mapped_val),*
                     }
                 }
-                fn try_from_sql_type(name: &str) -> Result<Self, String> {
+                pub fn try_from_sql_type(name: &str) -> Result<Self, String> {
                     use $name::*;
                     match name {
                         $($mapped_val => Ok($variant),)*
@@ -331,11 +290,11 @@ macro_rules! make_sql_enum {
                     }
                 }
 
-                fn get_possibility_list() -> &'static [&'static str] {
+                pub fn get_possibility_list() -> &'static [&'static str] {
                     &[ $($mapped_val),* ]
                 }
 
-                fn get_sql_typedef() -> String {
+                pub fn get_sql_typedef() -> String {
                     let mut out_string = String::default();
                     out_string.push_str("ENUM (");
 
@@ -453,6 +412,22 @@ macro_rules! make_static_enum_error {
                 }
             }
         }
+        impl<$scalar_value_param: ScalarValue, $($( $lt $( : $clt $(+ $dlt )* )? ),+)?> From<$name<$scalar_value_param, $($($lt),+)?>> for juniper::Value<$scalar_value_param> {
+            fn from(self_enum: $name<$scalar_value_param, $($($lt),+)?>) -> Self {
+                use $name::*;
+        
+                match self_enum {
+                    $(
+                        $variant ($($closure_param),*) => $crate::utils::macros::build_error_value!(
+                            $cause => {
+                                $($other_keys: $other_values,)*
+                            }
+                        )
+                    ),*
+                    
+                }
+            }
+        }
     };
     (@impl impl_block
         $name:ident $(< $( $lt:ty $( : $clt:ty )? ),+ >)?;
@@ -464,14 +439,30 @@ macro_rules! make_static_enum_error {
                     };
         )*
     ) => {
-        impl<S: ScalarValue, $($( $lt $( : $clt $(+ $dlt )* )? ),+)?> IntoFieldError<S> for $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? {
-            fn into_field_error(self) -> FieldError<S> {
+        impl<S: juniper::ScalarValue, $($( $lt $( : $clt $(+ $dlt )* )? ),+)?> juniper::IntoFieldError<S> for $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? {
+            fn into_field_error(self) -> juniper::FieldError<S> {
                 use $name::*;
         
                 match self {
                     $(
                         $variant ($($closure_param),*) => $crate::utils::macros::build_error!(
                             $reason; $cause => {
+                                $($other_keys: $other_values,)*
+                            }
+                        )
+                    ),*
+                    
+                }
+            }
+        }
+        impl<S: juniper::ScalarValue, $($( $lt $( : $clt $(+ $dlt )* )? ),+)?> From<$name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?> for juniper::Value<S> {
+            fn from(self_enum: $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?) -> Self {
+                use $name::*;
+        
+                match self_enum {
+                    $(
+                        $variant ($($closure_param),*) => $crate::utils::macros::build_error_value!(
+                            $cause => {
                                 $($other_keys: $other_values,)*
                             }
                         )

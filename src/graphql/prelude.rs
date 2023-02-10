@@ -7,7 +7,6 @@
 
 use std::sync::Arc;
 
-pub use crate::preludes::*;
 
 pub use tokio_postgres::Client;
 
@@ -37,6 +36,8 @@ pub use {
     super::{
         exec_graphql,
     },
+
+    super::helpers,
 
     super::structs::*,
 };

@@ -1,19 +1,12 @@
-//! This module contains most of the structs for sending and processing during graphql query resolution.
-//! 
 
-pub use teacher::*;
-pub use absence_state::*;
-pub use period::*;
 
-mod teacher {
-    //! This module is just an organizational construct to contain everything only used by the [Teacher] struct.
-    
+pub mod teacher {
     use std::fmt::Display;
-    
     use tokio_postgres::Row;
-    
-    use crate::utils::macros::{make_id_wrapper, make_name_wrapper};
 
+    use crate::utils::structs::TeacherRow;
+
+    use super::super::scalars::teacher::*;
     use super::absence_state::*;
 
     /// This struct represents a Teacher, both as treated by the graphql client and this server.
@@ -28,25 +21,40 @@ mod teacher {
         pub absence_state: GraphQLAbsenceState,
     }
 
-    impl TryFrom<Row> for Teacher {
-        type Error = String;
-        fn try_from(row: Row) -> Result<Self, Self::Error> {
-            /// FIXME: Centralize this constant.
-            const COL_NAMES: [&str; 2] = ["teacherid", "teachername"];
-    
-            match (row.try_get(COL_NAMES[0]), row.try_get(COL_NAMES[1])) {
-                (Ok(id), Ok(name)) => Ok(Teacher {
-                    id: TeacherId::new(&id),
-                    name: TeacherName::new(name), 
-                    absence_state: AbsenceState::Present.into(),
-                }),
-                (Ok(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[1]])),
-                (Err(_), Ok(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0]])),
-                (Err(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0], COL_NAMES[1]])),
+    impl Teacher {
+        pub fn from_row_and_state(row: TeacherRow, state: AbsenceState) -> Self {
+            Self {
+                id: row.id,
+                name: row.name,
+                absence_state: state.into(),
             }
-    
         }
     }
+
+    // impl TryFrom<Row> for Teacher {
+    //     type Error = String;
+    //     fn try_from(row: Row) -> Result<Self, Self::Error> {
+    //         /// FIXME: Centralize this constant.
+    //         const COL_NAMES: [&str; 4] = ["teacherid", "teachername", "isabsent", "fullyabsent"];
+    
+    //         match (row.try_get(COL_NAMES[0]), row.try_get(COL_NAMES[1])) {
+    //             (Ok(id), Ok(name)) => Ok(Teacher {
+    //                 id: TeacherId::new(&id),
+    //                 name: TeacherName::new(name), 
+    //                 absence_state: match (row.try_get(COL_NAMES[2]), row.try_get(COL_NAMES[3])) {
+    //                     (Ok(_), Ok(true)) => AbsenceState::FullyAbsent(Vec::new()),
+    //                     (Ok(true), Ok(false)) => AbsenceState::PartiallyAbsent(Vec::new()),
+    //                     (Ok(false), Ok(false)) => AbsenceState::Present,
+    //                     (a, b) => Err(format!("Row does not contain valid absence state: {:?}, {:?}.", a, b))?,
+    //                 }.into(),
+    //             }),
+    //             (Ok(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[1]])),
+    //             (Err(_), Ok(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0]])),
+    //             (Err(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0], COL_NAMES[1]])),
+    //         }
+    
+    //     }
+    // }
     
     impl Display for Teacher {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -54,28 +62,32 @@ mod teacher {
         }
     }
 
-    make_id_wrapper!{
-        /// The TeacherId struct's only purpose is to verify that it can only be made from a uuid,
-        /// and should only represent the ID of a teacher to prevent a mix-and-match of ID types.
-        pub TeacherId
-    }
-    impl Display for TeacherId {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "id<{}>", self.id_str())
-        }
+    #[derive(juniper::GraphQLObject, Debug, Clone)]
+    pub struct TeacherMetadata {
+        /// The id of the teacher. This is essentially a wrapper for a UUID, but is (de)serializable for juniper.
+        pub id: TeacherId,
+        /// The name of the teacher. A String wrapper.
+        pub name: TeacherName,
+        /// The stripped absence state of the teacher.
+        pub absence_state: &'static str,
     }
 
-    make_name_wrapper!{
-        /// The PeriodName's only job is to prevent a mix-and-match of different names.
-        pub TeacherName
+    impl From<TeacherRow> for TeacherMetadata {
+        fn from(row: TeacherRow) -> Self {
+            Self {
+                id: row.id,
+                name: row.name,
+                absence_state: row.presence.to_sql_type(),
+            }
+        }
     }
 }
 
-
-
-mod absence_state {
+pub mod absence_state {
     //! This module is just an organizational construct to contain everything only used by the [GraphQLAbsenceState] and [AbsenceState] structs.
 
+    use std::fmt::Display;
+    use tokio_postgres::Row;
 
     use super::period::Period;
 
@@ -116,7 +128,7 @@ mod absence_state {
         /// Represents a teacher that is present for all periods except the ones contained. (The `Vec` should have at least 1 period defined.)
         PartiallyAbsent(Vec<Period>),
         /// Represents a teacher that is absent for the ENTIRE day.
-        FullyAbsent,
+        FullyAbsent(Vec<Period>),
     }
 
     impl TryFrom<GraphQLAbsenceState> for AbsenceState {
@@ -125,12 +137,8 @@ mod absence_state {
         fn try_from(graphql_object: GraphQLAbsenceState) -> Result<Self, GraphQLAbsenceState> {
             use AbsenceState::*;
             match graphql_object {
-                GraphQLAbsenceState { is_fully_absent: true, .. } => Ok(FullyAbsent),
-                GraphQLAbsenceState { is_absent: true, absent_periods: Some(periods), .. } => if !periods.is_empty() {
-                    Ok(PartiallyAbsent(periods))
-                } else {
-                    Err(GraphQLAbsenceState { absent_periods: Some(periods), ..graphql_object })
-                },
+                GraphQLAbsenceState { is_fully_absent: true, absent_periods: Some(periods), .. } => Ok(FullyAbsent(periods)),
+                GraphQLAbsenceState { is_absent: true, absent_periods: Some(periods), .. } => Ok(PartiallyAbsent(periods)),
                 _ => Ok(Present),
             }
         }
@@ -142,29 +150,17 @@ mod absence_state {
             match absence_state {
                 Present => GraphQLAbsenceState { is_fully_absent: false, is_absent: false, absent_periods: None },
                 PartiallyAbsent(periods) => GraphQLAbsenceState { is_fully_absent: false, is_absent: true, absent_periods: Some(periods) },
-                FullyAbsent => GraphQLAbsenceState { is_fully_absent: true, is_absent: true, absent_periods: None },
+                FullyAbsent(periods) => GraphQLAbsenceState { is_fully_absent: true, is_absent: true, absent_periods: Some(periods) },
             }
         }
     }
 }
 
-mod period {
-    //! This module is just an organizational construct to contain everything only used by the [Period] struct.
-    //! 
+pub mod period {
+    use std::fmt::Display;
     use tokio_postgres::Row;
 
-    use crate::utils::macros::{make_id_wrapper, make_name_wrapper};
-
-    make_id_wrapper!{
-        /// The PeriodId struct's only purpose is to verify that it can only be made from a uuid,
-        /// and should only represent the ID of a period to prevent a mix-and-match of ID types.
-        pub PeriodId
-    }
-
-    make_name_wrapper!{
-        /// The PeriodName's only job is to prevent a mix-and-match of different names.
-        pub PeriodName
-    }
+    use super::super::scalars::period::*;
 
     /// A period as represented externally to the client and internally to the server.
     /// The ID and Name are essentially graphql-compatible newtypes.
@@ -195,6 +191,3 @@ mod period {
         }
     }
 }
-
-
-

@@ -8,10 +8,12 @@ pub mod modifying {
 
     define_shared_query_name!(pub add_teacher_query: "INSERT INTO teachers (teacherName, isAbsent, fullyAbsent) VALUES($1, false, false);");
     define_shared_query_name!(pub delete_teacher_query: "DELETE FROM teachers WHERE TeacherId = $1;");
-
+    
+    define_shared_query_name!(pub add_period_query: "INSERT INTO Periods (periodName) VALUES($1);");
+    
     define_shared_query_name!(pub update_teacher_query: "UPDATE teachers SET teacherName = $2, isAbsent = $3, fullyAbsent = $4 WHERE teacherId = $1;");
     define_shared_query_name!(pub clear_periods_for_teacher_query: "DELETE FROM Teachers_Periods_Absence_XRef WHERE TeacherId = $1;");
-    define_shared_query_name!(pub add_teacher_periods: "INSERT INTO Teachers_Periods_Absence_XRef (Teacherid, PeriodId);");
+    define_shared_query_name!(pub add_teacher_periods: "INSERT INTO Teachers_Periods_Absence_XRef VALUES ($1, $2);");
 }
 
 pub mod read {
@@ -34,6 +36,8 @@ pub mod read {
 
 
     define_shared_query_name!(pub all_periods_query: "SELECT * FROM Periods");
+    define_shared_query_name!(pub period_by_id_query: "SELECT * FROM Periods WHERE PeriodId = $1");
+    define_shared_query_name!(pub period_by_name_query: "SELECT * FROM Periods WHERE PeriodName = $1");
 
     define_shared_query_name!(pub get_periods_from_teacher_query: "
         SELECT Periods.* FROM Teachers_Periods_Absence_XRef

@@ -1,14 +1,22 @@
 //! This *private* module contains solely things things required to run and give the outputs of 
 
-use tokio_postgres::{Row, Statement};
 
-use crate::preludes::{
-    database::*,
-    graphql::*,
-    macros::*,
-    utils::list_to_value,
+use crate::utils::list_to_value;
+use crate::database::prelude::*;
+
+use crate::utils::structs::TeacherRow;
+use crate::{
+    preludes::graphql::*,
+    graphql_types::{
+        teachers::*,
+    },
 };
 
+use crate::macros::{
+    handle_prepared,
+    make_unit_enum_error,
+    make_static_enum_error,
+};
 
 make_unit_enum_error! {
     /// Database execution errors
@@ -30,7 +38,7 @@ make_static_enum_error! {
         Exec(DbExecError)
             => "Database error",
                 "db_failed" ==> |error_type| {
-                    "part_failed": error_type.error_str(),
+                    "part_failed": format!("{:?}", error_type),
                 };
         /// S - Something else went wrong with the database.
         OtherDb(String)
@@ -48,20 +56,21 @@ make_static_enum_error! {
 
 /// Executes the query all_teachers. Takes no parameters.
 pub async fn all_teachers(
-    ctx: &Context,
-) -> Result<Vec<Teacher>, AllTeachersError> {
-    let at = read::all_teachers_query(&ctx.db_context.client).await;
+    db_client: &mut Client,
+) -> Result<Vec<TeacherMetadata>, AllTeachersError> {
+    let at = read::all_teachers_query(db_client).await;
 
     let at = handle_prepared!(
         at;
         AllTeachersError::PreparedQuery
     )?;
 
-    let teacher_rows = get_all_teachers(ctx, at).await?;
+    let teacher_rows = get_all_teachers(db_client, at).await?;
 
     teacher_rows.into_iter().map(
         |row| row
             .try_into()
+            .map(From::<TeacherRow>::from)
             .map_err(AllTeachersError::OtherDb)
     ).collect()
 }
@@ -77,8 +86,8 @@ pub async fn all_teachers(
 ///     Err(e) => todo!("handle error: {}", e),
 /// };
 /// ```
-async fn get_all_teachers(ctx: &Context, at: &Statement) -> Result<Vec<Row>, AllTeachersError> {
-    ctx.db_context.client
+async fn get_all_teachers(db_client: &Client, at: &Statement) -> Result<Vec<Row>, AllTeachersError> {
+    db_client
         .query(at, &[])
         .await
         .map_err(|_| AllTeachersError::Exec(DbExecError::AllTeachers))

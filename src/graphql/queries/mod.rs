@@ -5,7 +5,13 @@ mod get_teacher;
 mod all_teachers;
 mod all_periods;
 
-use super::prelude::*;
+
+use crate::graphql_types::{
+    teachers::*,
+    juniper_types::IntoFieldError,
+    *,
+};
+
 
 /// This is a memberless struct implementing all the queries for `improved-eureka`.
 /// This includes:
@@ -25,26 +31,32 @@ impl QueryRoot {
         name: Option<TeacherName>,
         id: Option<TeacherId>
     ) -> juniper::FieldResult<Teacher> {
+        let mut db_context_mut = ctx.get_db_mut().await;
+
         get_teacher
-            ::get_teacher(ctx, name, id)
+            ::get_teacher(&mut db_context_mut.client, name, id)
             .await
             .map_err(IntoFieldError::into_field_error)
     }
 
     async fn all_teachers(
         ctx: &Context,
-    ) -> juniper::FieldResult<Vec<Teacher>> {
+    ) -> juniper::FieldResult<Vec<TeacherMetadata>> {
+        let mut db_context_mut = ctx.get_db_mut().await;
+
         all_teachers
-            ::all_teachers(ctx)
+            ::all_teachers(&mut db_context_mut.client)
             .await
             .map_err(IntoFieldError::into_field_error)
     }
 
     async fn all_periods(
         ctx: &Context,
-    ) -> juniper::FieldResult<Vec<Period>> {
+    ) -> juniper::FieldResult<Vec<periods::Period>> {
+        let mut db_context_mut = ctx.get_db_mut().await;
+
         all_periods
-            ::all_periods(ctx)
+            ::all_periods(&mut db_context_mut.client)
             .await
             .map_err(IntoFieldError::into_field_error)
     }

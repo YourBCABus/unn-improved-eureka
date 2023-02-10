@@ -23,7 +23,7 @@ use tokio_postgres::{
     connect as db_connect,
     NoTls as PostgresNoTls,
 };
-use tokio::spawn as async_spawn;
+use tokio::{spawn as async_spawn, sync::Mutex};
 
 
 use std::sync::Arc;
@@ -41,7 +41,7 @@ use std::sync::Arc;
 ///     Err(e) => todo!("failed to connect to db: {}", e),
 /// };
 /// ```
-pub async fn connect_with(host: &str, user: &str) -> Result<Arc<DbContext>, SqlCommunicationError> {
+pub async fn connect_with(host: &str, user: &str) -> Result<Arc<Mutex<DbContext>>, SqlCommunicationError> {
     let (client, connection) = db_connect(
         &format!("host={host} user={user}"),
         PostgresNoTls,
@@ -53,7 +53,7 @@ pub async fn connect_with(host: &str, user: &str) -> Result<Arc<DbContext>, SqlC
         }
     });
 
-    Ok(Arc::new(DbContext{ client }))
+    Ok(Arc::new(Mutex::new(DbContext{ client })))
 }
 
 /// At the moment, this is just a wrapper struct around a [PostgresClient].

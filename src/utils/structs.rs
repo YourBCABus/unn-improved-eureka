@@ -6,6 +6,7 @@ use std::error::Error as StdError;
 
 use warp::reject::Reject;
 
+
 /// A general error type, currently only used for [BodyDeserializeError].
 pub type BoxError = Box<dyn StdError + Send + Sync>;
 
@@ -42,3 +43,40 @@ impl StdError for BodyDeserializeError {
 
 
 impl Reject for BodyDeserializeError {}
+
+use crate::{
+    graphql_types::teachers::{TeacherId, TeacherName},
+    database::table_schemas::Teachers::TeacherPresence::TeacherPresence,
+};
+use tokio_postgres::Row;
+
+pub struct TeacherRow {
+    pub id: TeacherId,
+    pub name: TeacherName,
+    pub presence: TeacherPresence,
+}
+
+impl TryFrom<Row> for TeacherRow {
+    type Error = String;
+    fn try_from(row: Row) -> Result<Self, Self::Error> {
+        /// FIXME: Centralize this constant.
+        const COL_NAMES: [&str; 4] = ["teacherid", "teachername", "isabsent", "fullyabsent"];
+
+        match (row.try_get(COL_NAMES[0]), row.try_get(COL_NAMES[1])) {
+            (Ok(id), Ok(name)) => Ok(Self {
+                id: TeacherId::new(&id),
+                name: TeacherName::new(name), 
+                presence: match (row.try_get(COL_NAMES[2]), row.try_get(COL_NAMES[3])) {
+                    (Ok(_), Ok(true)) => TeacherPresence::FullAbsent,
+                    (Ok(true), Ok(false)) => TeacherPresence::PartAbsent,
+                    (Ok(false), Ok(false)) => TeacherPresence::FullPresent,
+                    (a, b) => Err(format!("Row does not contain valid absence state: {:?}, {:?}.", a, b))?,
+                },
+            }),
+            (Ok(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[1]])),
+            (Err(_), Ok(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0]])),
+            (Err(_), Err(_)) => Err(format!("Row does not contain {:?}", [COL_NAMES[0], COL_NAMES[1]])),
+        }
+
+    }
+}

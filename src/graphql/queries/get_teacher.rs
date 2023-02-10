@@ -1,20 +1,39 @@
 use tokio_postgres::{Row, Statement};
 use uuid::Uuid;
 
-use crate::preludes::{
-    database::*,
-    graphql::*,
-    macros::*,
-    utils::list_to_value,
+
+
+use crate::graphql_types::objects::absence_state::AbsenceState;
+use crate::preludes::graphql::helpers::teachers::PopulateTeacherAbsenceError;
+use crate::utils::list_to_value;
+use crate::database::prelude::*;
+
+use crate::utils::structs::TeacherRow;
+use crate::{
+    preludes::graphql::{
+        helpers::teachers as teacher_helpers,
+        *
+    },
+    graphql_types::{
+        teachers::*,
+        periods::Period,
+        juniper_types::*,
+    },
 };
 
-use juniper::Value as JuniperValue;
+use crate::macros::{
+    handle_prepared,
+    make_unit_enum_error,
+    make_static_enum_error,
+};
+
 
 make_unit_enum_error! {
     /// Database execution errors
     pub DbExecError
         GetById => "get_teacher_by_id"
         GetByName => "get_teacher_by_name"
+        GetPeriods => "get_teacher_periods"
 }
 
 make_static_enum_error! {
@@ -48,6 +67,13 @@ make_static_enum_error! {
                     "violation": violation_description,
                 };
 
+        /// TODO: bloop
+        PopulateError(PopulateTeacherAbsenceError)
+            => "Absence state failed to populate",
+                "populate_failed" ==> |error|  {
+                    "part_failed": error,
+                };
+
         /// S - A prepared query (&Statement) failed to load due to some error. Contains the names of the queries.
         PreparedQueryError(Vec<&'static str>)
             => "1 or more prepared queries failed.",
@@ -77,25 +103,26 @@ make_static_enum_error! {
 /// Executes the query get_teacher. Takes Context, an optional name, and an optional ID.
 /// At least one of the name or ID must be provided, otherwise a contract violation error is returned.
 pub async fn get_teacher<S: ScalarValue>(
-    ctx: &Context,
+    db_client: &mut Client,
     name: Option<TeacherName>,
     id: Option<TeacherId>
 ) -> Result<Teacher, GetTeacherError<S>> {
     use GetTeacherError::*;
 
-    let gtbi = read::get_teacher_by_id_query(&ctx.db_context.client).await;
-    let gtbn = read::get_teacher_by_name_query(&ctx.db_context.client).await;
+    let gtbi = read::get_teacher_by_id_query(db_client).await;
+    let gtbn = read::get_teacher_by_name_query(db_client).await;
+    let gtp = read::get_periods_from_teacher_query(db_client).await;
 
-    let (gtbi, gtbn) = handle_prepared!(
-        gtbi, gtbn;
+    let (gtbi, gtbn, gtp) = handle_prepared!(
+        gtbi, gtbn, gtp;
         PreparedQueryError
     )?;
 
-    match (id, name) {
+    let teacher_row: TeacherRow = match (id, name) {
         (Some(id_str), _) => {
             let (uuid, teacher_id) = id_str.try_into_uuid().map_err(IdFormatError)?;
     
-            if let Some(row) = get_teacher_row_by_id(uuid, ctx, gtbi).await? {
+            if let Some(row) = get_teacher_row_by_id(uuid, db_client, gtbi).await? {
                 row
                     .try_into()
                     .map_err(|err| OtherDbError(err))
@@ -104,7 +131,7 @@ pub async fn get_teacher<S: ScalarValue>(
             }
         },
         (None, Some(name)) => {
-            if let Some(row) = get_teacher_row_by_name(name.name_str(), ctx, gtbn).await? {
+            if let Some(row) = get_teacher_row_by_name(name.name_str(), db_client, gtbn).await? {
                 row
                     .try_into()
                     .map_err(|err| GetTeacherError::OtherDbError(err))
@@ -116,7 +143,11 @@ pub async fn get_teacher<S: ScalarValue>(
             "id_or_name_required",
             graphql_value!({ "requires": { "one_of": ["id", "name"] } }),
         )),
-    }
+    }?;
+
+    teacher_helpers
+        ::populate_absence(teacher_row, db_client).await
+        .map_err(GetTeacherError::PopulateError)
 }
 
 /// Does what it says. Gets the teacher row by ID, returning an ExecError if it fails.
@@ -131,8 +162,8 @@ pub async fn get_teacher<S: ScalarValue>(
 ///     Err(e) => todo!("handle error: {}", e),
 /// };
 /// ```
-async fn get_teacher_row_by_id<S: ScalarValue>(uuid: Uuid, ctx: &Context, gtbi: &Statement) -> Result<Option<Row>, GetTeacherError<S>> {
-    ctx.db_context.client
+async fn get_teacher_row_by_id<S: ScalarValue>(uuid: Uuid, client: &Client, gtbi: &Statement) -> Result<Option<Row>, GetTeacherError<S>> {
+    client
         .query_opt(gtbi, &[&uuid])
         .await
         .map_err(|_| GetTeacherError::ExecError(DbExecError::GetById))
@@ -150,8 +181,8 @@ async fn get_teacher_row_by_id<S: ScalarValue>(uuid: Uuid, ctx: &Context, gtbi: 
 ///     Err(e) => todo!("handle error: {}", e),
 /// };
 /// ```
-async fn get_teacher_row_by_name<S: ScalarValue>(name: &str, ctx: &Context, gtbn: &Statement) -> Result<Option<Row>, GetTeacherError<S>> {
-    ctx.db_context.client
+async fn get_teacher_row_by_name<S: ScalarValue>(name: &str, client: &Client, gtbn: &Statement) -> Result<Option<Row>, GetTeacherError<S>> {
+    client
         .query_opt(gtbn, &[&name])
         .await
         .map_err(|_| GetTeacherError::ExecError(DbExecError::GetByName))
