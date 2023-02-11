@@ -12,11 +12,29 @@ pub mod modifying {
     define_shared_query_name!(pub delete_teacher_query: "DELETE FROM teachers WHERE TeacherId = $1;");
     
     // Period-specific modifying sql queries:
-    define_shared_query_name!(pub add_period_query: "INSERT INTO Periods (periodName) VALUES($1);");
+    define_shared_query_name!(pub add_period_query: "
+        INSERT INTO Periods
+            (PeriodName, UtcStartDefault, UtcEndDefault)
+            VALUES ($1, $2, $3);
+    ");
+    define_shared_query_name!(pub update_period_query: "
+        UPDATE periods
+        SET
+            PeriodName = $2,
+            UtcStartDefault = $3, UtcEndDefault = $4,
+            UtcStartCurrent = $5, UtcEndCurrent = $6
+        WHERE PeriodId = $1;");
+    define_shared_query_name!(pub delete_period_query: "DELETE FROM periods WHERE PeriodId = $1;");
+    define_shared_query_name!(pub clear_temp_times: "UPDATE periods SET UtcStartCurrent = NULL, UtcEndCurrent = NULL");
+
     
     // Teacher-Period relation modifying sql queries:
     define_shared_query_name!(pub add_teacher_periods: "INSERT INTO Teachers_Periods_Absence_XRef VALUES ($1, $2);");
     define_shared_query_name!(pub clear_periods_for_teacher_query: "DELETE FROM Teachers_Periods_Absence_XRef WHERE TeacherId = $1;");
+    define_shared_query_name!(pub clear_teachers_for_period_query: "DELETE FROM Teachers_Periods_Absence_XRef WHERE PeriodId = $1;");
+    define_shared_query_name!(pub clear_absences: "DELETE FROM Teachers_Periods_Absence_XRef");
+    define_shared_query_name!(pub clear_absence_metadata: "UPDATE teachers SET isAbsent = false, fullyAbsent = false;");
+    
 }
 
 pub mod read {
@@ -32,8 +50,8 @@ pub mod read {
     
     
     define_shared_query_name!(pub all_periods_query: "SELECT * FROM Periods");
-    define_shared_query_name!(pub period_by_id_query: "SELECT * FROM Periods WHERE PeriodId = $1");
-    define_shared_query_name!(pub period_by_name_query: "SELECT * FROM Periods WHERE PeriodName = $1");
+    define_shared_query_name!(pub get_period_by_id_query: "SELECT * FROM Periods WHERE PeriodId = $1");
+    define_shared_query_name!(pub get_period_by_name_query: "SELECT * FROM Periods WHERE PeriodName = $1");
     
 
     define_shared_query_name!(pub get_teachers_from_period_query: "

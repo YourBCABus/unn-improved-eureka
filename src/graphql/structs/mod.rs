@@ -2,6 +2,7 @@
 
 pub mod scalars;
 pub mod objects;
+pub mod inputs;
 
 pub use super::Context;
 

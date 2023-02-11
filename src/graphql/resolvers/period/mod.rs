@@ -2,6 +2,7 @@
 use std::fmt::Display;
 
 use super::teacher::TeacherMetadata;
+use super::time_range::TimeRange;
 use juniper::{graphql_object, IntoFieldError, FieldResult};
 
 use crate::graphql_types::{
@@ -24,6 +25,9 @@ pub struct PeriodMetadata {
     pub id: PeriodId,
     /// The name of the period. A String wrapper.
     pub name: PeriodName,
+
+    pub default_range: TimeRange,
+    pub temp_range: Option<TimeRange>,
 }
 
 impl From<PeriodRow> for PeriodMetadata {
@@ -31,6 +35,10 @@ impl From<PeriodRow> for PeriodMetadata {
         Self {
             id: row.id,
             name: row.name,
+            default_range: TimeRange::new(row.start_default, row.end_default),
+            temp_range: if let (Some(start), Some(end)) = (row.start_curr, row.end_curr) {
+                Some(TimeRange::new(start, end))
+            } else { None }
         }
     }
 }
@@ -64,6 +72,14 @@ impl PeriodMetadata {
         teachers_absent::absent_periods(&self.id.uuid(), &db_context.client)
             .await
             .map_err(IntoFieldError::into_field_error)
+    }
+
+    fn default_time_range(&self) -> &TimeRange {
+        &self.default_range
+    }
+
+    fn time_range(&self) -> &TimeRange {
+        self.temp_range.as_ref().unwrap_or(&self.default_range)
     }
 
     fn id(&self) -> &PeriodId {

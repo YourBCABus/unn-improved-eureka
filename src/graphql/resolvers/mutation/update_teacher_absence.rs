@@ -94,7 +94,7 @@ pub async fn update_teacher_absence(
     ) = tokio::join!(
         read::get_teacher_by_id_query(db_client),
 
-        read::period_by_name_query(db_client),
+        read::get_period_by_name_query(db_client),
         read::all_periods_query(db_client),
         
         modifying::clear_periods_for_teacher_query(db_client),

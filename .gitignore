@@ -4,4 +4,4 @@ schema.graphql
 output.json
 test.js
 *.sql
-!schema_setup.sql
+!sql_schemas/**/*.sql
