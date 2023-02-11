@@ -1,4 +1,7 @@
-//! This *private* module contains solely things things required to run and give the outputs of 
+//! This *__private__* module contains solely things things required to
+//! execute and resolve the `allTeachers` GraphQL mutation.
+//! 
+//! Main function is [all_teachers].
 
 
 use std::borrow::Cow;

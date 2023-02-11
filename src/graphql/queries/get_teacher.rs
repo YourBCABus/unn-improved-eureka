@@ -1,3 +1,8 @@
+//! This *__private__* module contains solely things things required to
+//! execute and resolve the `getTeacher` GraphQL mutation.
+//! 
+//! Main function is [get_teacher].
+
 use std::borrow::Cow;
 
 use tokio_postgres::{Row, Statement};
@@ -66,7 +71,7 @@ make_static_enum_error! {
                     "violation": violation_description,
                 };
 
-        /// TODO: bloop
+        /// TODO: Document this
         PopulateError(PopulateTeacherAbsenceError)
             => "Absence state failed to populate",
                 "populate_failed" ==> |error|  {

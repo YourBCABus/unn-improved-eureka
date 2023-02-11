@@ -57,7 +57,7 @@ make_static_enum_error! {
                     "name": id,
                 };
                 
-        /// TODO: Make this work
+        /// TODO: Document this
         PopulateError(PopulateTeacherAbsenceError)
             => "Absence state failed to populate",
                 "populate_failed" ==> |error|  {
@@ -178,7 +178,7 @@ async fn get_all_periods_query(transaction: &Transaction<'_>, apq: &Statement) -
             .into_iter()
             .map(|row| row.try_into())
             .collect::<Result<_, _>>()
-            .map_err(|e| UpdateTeacherAbsenceError::Other(format!("DESERIALIZATION ERROR: {}", e).into())),
+            .map_err(UpdateTeacherAbsenceError::Other),
         Err(_) => Err(UpdateTeacherAbsenceError::ExecError(DbExecError::GetAllPeriods)),
     }
 }
@@ -187,10 +187,7 @@ async fn get_periods_by_names_query(names: impl Iterator<Item = &str>, transacti
     let period_futures = names
         .map(|name| async move {
             match transaction.query_opt(pbn, &[&name]).await {
-                Ok(Some(period_row)) => match period_row.try_into() {
-                    Ok(period) => Ok(period),
-                    Err(e) => Err(UpdateTeacherAbsenceError::Other(e)),
-                },
+                Ok(Some(period_row)) => period_row.try_into().map_err(UpdateTeacherAbsenceError::Other),
                 Ok(_) => Err(UpdateTeacherAbsenceError::PeriodNameDoesNotExist(name.to_string())),
                 Err(_) => Err(UpdateTeacherAbsenceError::ExecError(DbExecError::GetSomePeriods)),
             }
