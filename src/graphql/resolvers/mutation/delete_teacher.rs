@@ -5,8 +5,8 @@ use crate::database::prelude::*;
 
 use crate::{
     preludes::graphql::*,
-    graphql_types::{
-        teachers::*,
+    graphql_types::scalars::{
+        teacher::*,
     },
 };
 

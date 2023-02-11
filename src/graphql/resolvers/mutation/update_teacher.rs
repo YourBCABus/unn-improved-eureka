@@ -2,13 +2,14 @@ use std::borrow::Cow;
 
 use uuid::Uuid;
 
+use crate::graphql::resolvers::teacher::TeacherMetadata;
 use crate::utils::list_to_value;
 use crate::database::prelude::*;
 
 use crate::{
     preludes::graphql::*,
-    graphql_types::{
-        teachers::*,
+    graphql_types::scalars::{
+        teacher::*,
     },
 };
 

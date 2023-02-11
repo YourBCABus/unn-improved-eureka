@@ -6,32 +6,13 @@ mod all_teachers;
 mod all_periods;
 
 
-use periods::Period;
-
 use crate::graphql_types::{
-    teachers::*,
+    scalars::teacher::*,
     juniper_types::IntoFieldError,
     *,
 };
 
-macro_rules! basic_query {
-    (
-        $name:ident;
-        $($var_name:ident: $param_type:ty),*;
-        $module_fn:path => $output_type:ty
-    ) => {
-        async fn $name(
-            ctx: &Context,
-            $($var_name: $param_type),*
-        ) -> juniper::FieldResult<$output_type> {
-            let mut db_context_mut = ctx.get_db_mut().await;
-    
-            $module_fn(&mut db_context_mut.client, $($var_name),*)
-                .await
-                .map_err(IntoFieldError::into_field_error)
-        }
-    };
-}
+use super::{period::PeriodMetadata, teacher::TeacherMetadata};
 
 /// This is a memberless struct implementing all the queries for `improved-eureka`.
 /// This includes:
@@ -50,7 +31,7 @@ impl QueryRoot {
         ctx: &Context,
         name: Option<TeacherName>,
         id: Option<TeacherId>
-    ) -> juniper::FieldResult<Teacher> {
+    ) -> juniper::FieldResult<TeacherMetadata> {
         let mut db_context_mut = ctx.get_db_mut().await;
 
         get_teacher
@@ -69,20 +50,19 @@ impl QueryRoot {
             .await
             .map_err(IntoFieldError::into_field_error)
     }
-    
-    // async fn all_periods(
-    //     ctx: &Context,
-    // ) -> juniper::FieldResult<Vec<periods::Period>> {
-    //     let mut db_context_mut = ctx.get_db_mut().await;
 
-    //     all_periods
-    //         ::all_periods(&mut db_context_mut.client)
-    //         .await
-    //         .map_err(IntoFieldError::into_field_error)
-    // }
+    async fn all_periods(
+        ctx: &Context,
+    ) -> juniper::FieldResult<Vec<PeriodMetadata>> {
+        let mut db_context_mut = ctx.get_db_mut().await;
+
+        all_periods
+            ::all_periods(&mut db_context_mut.client)
+            .await
+            .map_err(IntoFieldError::into_field_error)
+    }
 }
 
-basic_query!(all_periods; ; all_periods::all_periods => Vec<Period>);
 
 
 

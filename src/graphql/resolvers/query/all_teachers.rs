@@ -6,16 +6,11 @@
 
 use std::borrow::Cow;
 
+use crate::graphql::resolvers::teacher::TeacherMetadata;
 use crate::utils::list_to_value;
 use crate::database::prelude::*;
 
-use crate::utils::structs::TeacherRow;
-use crate::{
-    preludes::graphql::*,
-    graphql_types::{
-        teachers::*,
-    },
-};
+use crate::preludes::graphql::*;
 
 use crate::macros::{
     handle_prepared,
@@ -72,12 +67,10 @@ pub async fn all_teachers(
 
     let teacher_rows = get_all_teachers(db_client, at).await?;
 
-    teacher_rows.into_iter().map(
-        |row| row
-            .try_into()
-            .map(From::<TeacherRow>::from)
-            .map_err(AllTeachersError::OtherDb)
-    ).collect()
+    teacher_rows
+        .into_iter()
+        .map(|row| TeacherMetadata::try_from_row(row, AllTeachersError::OtherDb))
+        .collect()
 }
 /// Does what it says. Gets all of the teacher rows unconditionally, returning an Exec error if it fails.
 /// 

@@ -29,19 +29,16 @@ pub use juniper::http::{
 pub use {
     super::{
         Schema,
-        mutations::MutationRoot,
-        queries::QueryRoot,
+        resolvers::mutation::MutationRoot,
+        resolvers::query::QueryRoot,
         Context,
     },
     super::{
         exec_graphql,
     },
 
-    super::helpers,
-
     super::structs::*,
 };
-pub use helpers::teachers as teacher_helpers;
 
 /// General utility functions for graphql-related things.
 /// 

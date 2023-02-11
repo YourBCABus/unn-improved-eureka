@@ -3,18 +3,17 @@ use std::borrow::Cow;
 use tokio_postgres::Transaction;
 use uuid::Uuid;
 
-use crate::preludes::graphql::helpers::teachers::PopulateTeacherAbsenceError;
+use crate::graphql::resolvers::period::PeriodMetadata;
+use crate::graphql::resolvers::teacher::TeacherMetadata;
 use crate::utils::list_to_value;
 use crate::database::prelude::*;
 
+use crate::utils::structs::PeriodRow;
 use crate::{
-    preludes::graphql::{
-        teacher_helpers::populate_absence,
-        *,
-    },
-    graphql_types::{
-        teachers::*,
-        periods::*,
+    preludes::graphql::*,
+    graphql_types::scalars::{
+        teacher::*,
+        period::*,
     },
 };
 
@@ -56,13 +55,6 @@ make_static_enum_error! {
                 "name_does_not_exist" ==> |id| {
                     "name": id,
                 };
-                
-        /// TODO: Document this
-        PopulateError(PopulateTeacherAbsenceError)
-            => "Absence state failed to populate",
-                "populate_failed" ==> |error|  {
-                    "part_failed": error,
-                };
             
         /// S - A prepared query (&Statement) failed to load due to some error. Contains the names of the queries.
         PreparedQueryError(Vec<&'static str>)
@@ -92,7 +84,7 @@ pub async fn update_teacher_absence(
     teacher_id: TeacherId,
     period_names: &[PeriodName],
     fully_absent: bool,
-) -> Result<Teacher, UpdateTeacherAbsenceError> {
+) -> Result<TeacherMetadata, UpdateTeacherAbsenceError> {
     let (
         gtbi,
         pbn, apq,
@@ -143,13 +135,11 @@ pub async fn update_teacher_absence(
 
     let teacher_row = get_teacher_by_id_query(&teacher_id, &transaction, gtbi).await?;
 
-    let teacher = populate_absence(teacher_row, transaction.client()).await
-        .map_err(UpdateTeacherAbsenceError::PopulateError)?;
 
-    if transaction.commit().await.is_err() {
-        Err(UpdateTeacherAbsenceError::Other("transaction failed to commit".into()))
+    if transaction.commit().await.is_ok() {
+        Ok(teacher_row.into())
     } else {
-        Ok(teacher)
+        Err(UpdateTeacherAbsenceError::Other("transaction failed to commit".into()))
     }
 
 }
@@ -172,22 +162,22 @@ async fn get_teacher_by_id_query(id: &Uuid, transaction: &Transaction<'_>, gtbi:
     }
 }
 
-async fn get_all_periods_query(transaction: &Transaction<'_>, apq: &Statement) -> Result<Vec<Period>, UpdateTeacherAbsenceError> {
+async fn get_all_periods_query(transaction: &Transaction<'_>, apq: &Statement) -> Result<Vec<PeriodMetadata>, UpdateTeacherAbsenceError> {
     match transaction.query(apq, &[]).await {
         Ok(v) => v
             .into_iter()
-            .map(|row| row.try_into())
+            .map(|row| row.try_into().map(From::<PeriodRow>::from))
             .collect::<Result<_, _>>()
             .map_err(UpdateTeacherAbsenceError::Other),
         Err(_) => Err(UpdateTeacherAbsenceError::ExecError(DbExecError::GetAllPeriods)),
     }
 }
 
-async fn get_periods_by_names_query(names: impl Iterator<Item = &str>, transaction: &Transaction<'_>, pbn: &Statement) -> Result<Vec<Period>, UpdateTeacherAbsenceError> {
+async fn get_periods_by_names_query(names: impl Iterator<Item = &str>, transaction: &Transaction<'_>, pbn: &Statement) -> Result<Vec<PeriodMetadata>, UpdateTeacherAbsenceError> {
     let period_futures = names
         .map(|name| async move {
             match transaction.query_opt(pbn, &[&name]).await {
-                Ok(Some(period_row)) => period_row.try_into().map_err(UpdateTeacherAbsenceError::Other),
+                Ok(Some(period_row)) => period_row.try_into().map(From::<PeriodRow>::from).map_err(UpdateTeacherAbsenceError::Other),
                 Ok(_) => Err(UpdateTeacherAbsenceError::PeriodNameDoesNotExist(name.to_string())),
                 Err(_) => Err(UpdateTeacherAbsenceError::ExecError(DbExecError::GetSomePeriods)),
             }

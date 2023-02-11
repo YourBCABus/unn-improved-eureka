@@ -6,14 +6,12 @@
 
 use std::borrow::Cow;
 
+use crate::graphql::resolvers::period::PeriodMetadata;
 use crate::utils::list_to_value;
 use crate::database::prelude::*;
 
 use crate::{
     preludes::graphql::*,
-    graphql_types::{
-        periods::*,
-    },
 };
 
 use crate::macros::{
@@ -62,7 +60,7 @@ make_static_enum_error! {
 /// Executes the query all_teachers. Takes no parameters.
 pub async fn all_periods(
     db_client: &mut Client,
-) -> Result<Vec<Period>, AllPeriodsError> {
+) -> Result<Vec<PeriodMetadata>, AllPeriodsError> {
     let at = read::all_periods_query(db_client).await;
 
     let at = handle_prepared!(
@@ -72,11 +70,10 @@ pub async fn all_periods(
 
     let period_rows = get_all_periods(db_client, at).await?;
 
-    period_rows.into_iter().map(
-        |row| row
-            .try_into()
-            .map_err(AllPeriodsError::OtherDb)
-    ).collect()
+    period_rows
+        .into_iter()
+        .map(|row| PeriodMetadata::try_from_row(row, AllPeriodsError::OtherDb))
+        .collect()
 }
 /// Does what it says. Gets all of the period rows unconditionally, returning an Exec error if it fails.
 /// 

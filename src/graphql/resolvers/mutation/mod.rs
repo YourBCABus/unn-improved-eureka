@@ -10,11 +10,13 @@ mod update_teacher_absence;
 
 
 use crate::graphql_types::{
-    teachers::*,
-    periods::*,
+    scalars::teacher::*,
+    scalars::period::*,
     juniper_types::IntoFieldError,
     *,
 };
+
+use super::{teacher::TeacherMetadata, period::PeriodMetadata};
 
 
 /// This is a memberless struct implementing all the mutations for `improved-eureka`.
@@ -34,9 +36,9 @@ impl MutationRoot {
         let mut db_context_mut = ctx.get_db_mut().await;
         
         add_teacher
-        ::add_teacher(&mut db_context_mut.client, &name)
-        .await
-        .map_err(IntoFieldError::into_field_error)
+            ::add_teacher(&mut db_context_mut.client, &name)
+            .await
+            .map_err(IntoFieldError::into_field_error)
     }
     
     async fn update_teacher(
@@ -57,7 +59,7 @@ impl MutationRoot {
         id: TeacherId,
         names: Vec<PeriodName>,
         fully_absent: bool,
-    ) -> juniper::FieldResult<Teacher> {
+    ) -> juniper::FieldResult<TeacherMetadata> {
         let mut db_context_mut = ctx.get_db_mut().await;
 
         update_teacher_absence
@@ -83,7 +85,7 @@ impl MutationRoot {
     async fn add_period(
         ctx: &Context,
         name: String,
-    ) -> juniper::FieldResult<Period> {
+    ) -> juniper::FieldResult<PeriodMetadata> {
         let mut db_context_mut = ctx.get_db_mut().await;
         
         add_period

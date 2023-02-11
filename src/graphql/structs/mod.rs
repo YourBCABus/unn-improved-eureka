@@ -5,23 +5,6 @@ pub mod objects;
 
 pub use super::Context;
 
-pub mod teachers {
-    //! Contains all of the structs specific to [Teachers][Teacher].
-    pub use super::scalars::teacher::*;
-    pub use super::objects::teacher::*;
-}
-
-pub mod absence_state {
-    //! Contains all of the structs specific to absence states.
-    pub use super::objects::absence_state::*;
-}
-
-pub mod periods {
-    //! Contains all of the structs specific to [Periods][Period].
-    pub use super::scalars::period::*;
-    pub use super::objects::period::*;
-}
-
 pub mod juniper_types {
     //! Contains some junipers types that are useful to have quick access to.
     pub use juniper::IntoFieldError;

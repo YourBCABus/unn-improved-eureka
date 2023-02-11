@@ -10,18 +10,14 @@ use uuid::Uuid;
 
 
 
-use crate::preludes::graphql::helpers::teachers::PopulateTeacherAbsenceError;
+use crate::graphql::resolvers::teacher::TeacherMetadata;
 use crate::utils::list_to_value;
 use crate::database::prelude::*;
 
-use crate::utils::structs::TeacherRow;
 use crate::{
-    preludes::graphql::{
-        helpers::teachers as teacher_helpers,
-        *
-    },
+    preludes::graphql::*,
     graphql_types::{
-        teachers::*,
+        scalars::teacher::*,
         juniper_types::*,
     },
 };
@@ -71,13 +67,6 @@ make_static_enum_error! {
                     "violation": violation_description,
                 };
 
-        /// TODO: Document this
-        PopulateError(PopulateTeacherAbsenceError)
-            => "Absence state failed to populate",
-                "populate_failed" ==> |error|  {
-                    "part_failed": error,
-                };
-
         /// S - A prepared query (&Statement) failed to load due to some error. Contains the names of the queries.
         PreparedQueryError(Vec<&'static str>)
             => "1 or more prepared queries failed.",
@@ -110,7 +99,7 @@ pub async fn get_teacher<S: ScalarValue>(
     db_client: &mut Client,
     name: Option<TeacherName>,
     id: Option<TeacherId>
-) -> Result<Teacher, GetTeacherError<S>> {
+) -> Result<TeacherMetadata, GetTeacherError<S>> {
     use GetTeacherError::*;
 
     let gtbi = read::get_teacher_by_id_query(db_client).await;
@@ -121,36 +110,28 @@ pub async fn get_teacher<S: ScalarValue>(
         PreparedQueryError
     )?;
 
-    let teacher_row: TeacherRow = match (id, name) {
+    match (id, name) {
         (Some(id_str), _) => {
             let (uuid, _) = id_str.try_into_uuid().map_err(IdFormatError)?;
     
             if let Some(row) = get_teacher_row_by_id(uuid, db_client, gtbi).await? {
-                row
-                    .try_into()
-                    .map_err(|err| OtherDbError(err))
+                TeacherMetadata::try_from_row(row, OtherDbError)
             } else {
                 Err(IdDoesNotExist(uuid))
             }
         },
         (None, Some(name)) => {
             if let Some(row) = get_teacher_row_by_name(name.name_str(), db_client, gtbn).await? {
-                row
-                    .try_into()
-                    .map_err(|err| GetTeacherError::OtherDbError(err))
+                TeacherMetadata::try_from_row(row, OtherDbError)
             } else {
-                Err(GetTeacherError::NameDoesNotExist(name.into_string()))
+                Err(NameDoesNotExist(name.into_string()))
             }
         },
-        _ => Err(GetTeacherError::ContractViolated(
+        _ => Err(ContractViolated(
             "id_or_name_required",
             graphql_value!({ "requires": { "one_of": ["id", "name"] } }),
         )),
-    }?;
-
-    teacher_helpers
-        ::populate_absence(teacher_row, db_client).await
-        .map_err(GetTeacherError::PopulateError)
+    }
 }
 
 /// Does what it says. Gets the teacher row by ID, returning an ExecError if it fails.

@@ -45,7 +45,10 @@ impl StdError for BodyDeserializeError {
 impl Reject for BodyDeserializeError {}
 
 use crate::{
-    graphql_types::teachers::{TeacherId, TeacherName},
+    graphql_types::scalars::{
+        teacher::*,
+        period::*,
+    },
     database::table_schemas::Teachers::TeacherPresence::TeacherPresence,
 };
 use tokio_postgres::Row;
@@ -86,5 +89,33 @@ impl TryFrom<Row> for TeacherRow {
             (Err(_), Ok(_)) => Err(formatcp!("Row does not contain {:?}", COL_NAMES[0]).into()),
             (Err(_), Err(_)) => Err(formatcp!("Row does not contain {:?}, {:?}", COL_NAMES[0], COL_NAMES[1]).into()),
         }
+    }
+}
+
+/// The direct deserialization target of a `Teachers` table row.
+pub struct PeriodRow {
+    /// The id in the `periodid` field.
+    pub id: PeriodId,
+    
+    /// The name in the `periodname` field.
+    pub name: PeriodName,
+}
+
+impl TryFrom<Row> for PeriodRow {
+    type Error = Cow<'static, str>;
+    fn try_from(row: Row) -> Result<Self, Self::Error> {
+        /// FIXME: Centralize this constant.
+        const COL_NAMES: [&str; 2] = ["periodid", "periodname"];
+
+        match (row.try_get(COL_NAMES[0]), row.try_get(COL_NAMES[1])) {
+            (Ok(id), Ok(name)) => Ok(PeriodRow {
+                id: PeriodId::new(&id),
+                name: PeriodName::new(name), 
+            }),
+            (Ok(_), Err(_)) => Err(formatcp!("Row does not contain {:?}", COL_NAMES[1]).into()),
+            (Err(_), Ok(_)) => Err(formatcp!("Row does not contain {:?}", COL_NAMES[0]).into()),
+            (Err(_), Err(_)) => Err(formatcp!("Row does not contain {:?}, {:?}", COL_NAMES[0], COL_NAMES[1]).into()),
+        }
+
     }
 }

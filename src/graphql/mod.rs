@@ -7,10 +7,8 @@
 
 pub mod structs;
 pub mod prelude;
-pub mod helpers;
 
-pub mod queries;
-pub mod mutations;
+pub mod resolvers;
 
 use tokio::sync::Mutex;
 

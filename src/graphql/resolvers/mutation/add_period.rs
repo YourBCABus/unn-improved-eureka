@@ -2,14 +2,13 @@ use std::borrow::Cow;
 
 use uuid::Uuid;
 
+use crate::graphql::resolvers::period::PeriodMetadata;
 use crate::utils::list_to_value;
 use crate::database::prelude::*;
 
+use crate::utils::structs::PeriodRow;
 use crate::{
     preludes::graphql::*,
-    graphql_types::{
-        periods::*,
-    },
 };
 
 use crate::macros::{
@@ -74,7 +73,7 @@ make_static_enum_error! {
 pub async fn add_period(
     db_client: &mut Client,
     name: &str,
-) -> Result<Period, AddPeriodError> {
+) -> Result<PeriodMetadata, AddPeriodError> {
 
     let (pbn, ap) = tokio::join!(
         read::period_by_name_query(db_client),
@@ -137,14 +136,14 @@ async fn add_period_to_db(db_client: &Client, name: &str, ap: &Statement) -> Opt
 ///     Err(err) => eprintln!("Failed to retrieve period: {:?}", err),
 /// }
 /// ```
-async fn get_period_by_name(db_client: &Client, name: &str, gpbn: &Statement) -> Result<Option<Period>, AddPeriodError> {
+async fn get_period_by_name(db_client: &Client, name: &str, gpbn: &Statement) -> Result<Option<PeriodMetadata>, AddPeriodError> {
     use AddPeriodError::*;
     use self::DbExecError::*;
 
     let query_result = db_client.query_opt(gpbn, &[&name]).await;
     if let Ok(opt_period) = query_result {
         if let Some(period) = opt_period {
-            Ok(Some(period.try_into().map_err(Other)?))
+            Ok(Some(period.try_into().map(From::<PeriodRow>::from).map_err(Other)?))
         } else {
             Ok(None)
         }

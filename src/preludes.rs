@@ -13,4 +13,5 @@ pub use crate::verification;
 pub use crate::verification::hmac as hmac; 
 
 pub use crate::graphql::structs as graphql_types;
+pub use crate::graphql::structs::scalars as graphql_scalars;
 
