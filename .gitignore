@@ -1,3 +1,7 @@
 /target
 Cargo.lock
 schema.graphql
+output.json
+test.js
+*.sql
+!schema_setup.sql
