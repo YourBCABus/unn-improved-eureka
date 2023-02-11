@@ -25,6 +25,7 @@ make_unit_enum_error! {
 }
 
 make_static_enum_error! {
+    prefix: "allTeachers";
     /// This struct contains all the possible error types that can occur when executing the all_teachers query.
     /// All 4 of the types are server errors (S).
     pub AllTeachersError;

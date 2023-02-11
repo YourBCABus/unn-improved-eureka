@@ -37,7 +37,8 @@ make_unit_enum_error! {
 }
 
 make_static_enum_error! {
-    S;;
+    <S>
+    prefix: "getTeacher";
     /// This struct contains all the possible error types that can occur when executing the get_teacher query.
     /// 4 of the types are client errors (C), 4 are server errors (S).
     pub GetTeacherError;

@@ -25,6 +25,7 @@ make_unit_enum_error! {
 }
 
 make_static_enum_error! {
+    prefix: "addPeriod";
     /// This struct contains all the possible error types that can occur when executing the all_teachers query.
     /// 1 is a client error (C), and 3 are server errors (S).
     pub AddPeriodError;

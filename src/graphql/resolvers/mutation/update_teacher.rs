@@ -27,6 +27,7 @@ make_unit_enum_error! {
 }
 
 make_static_enum_error! {
+    prefix: "updateTeacher";
     /// This struct contains all the possible error types that can occur when executing the update_teacher mutation.
     /// 2 are client errors (C), and 3 are server errors (S).
     pub UpdateTeacherError;

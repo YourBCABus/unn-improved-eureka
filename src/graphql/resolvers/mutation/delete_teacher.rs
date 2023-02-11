@@ -27,6 +27,7 @@ make_unit_enum_error! {
 }
 
 make_static_enum_error! {
+    prefix: "deleteTeacher";
     /// This struct contains all the possible error types that can occur when executing the delete_teacher mutation.
     /// 2 are client errors (C), and 2 are server errors (S).
     pub DeleteTeacherError;

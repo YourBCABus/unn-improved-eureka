@@ -74,23 +74,25 @@ pub(crate) use handle_prepared as handle_prepared;
 /// juniper's [graphql_value][juniper::graphql_value] macro
 /// doesn't allow expressions directly as values.
 macro_rules! build_error_value {
-    ($cause:literal => { $($other_keys:literal: $other_values:expr,)* }) => {
+    ($(prefix: $prefix:literal;)? $cause:literal => { $($other_keys:literal: $other_values:expr,)* }) => {
         {
             use juniper::graphql_value;
-            let err_value = $crate::utils::macros::build_error_value! { impl bindings base_1_0; $cause; $($other_keys: $other_values,)*; };
+            let err_value = $crate::utils::macros::build_error_value! { impl bindings $($prefix;)? base_1_0; $cause; $($other_keys: $other_values,)*; };
             
             err_value
         }
     };
 
-    (impl bindings $curr_name:ident; $cause:literal; ; $($proccessed_keys:literal: $bindings:ident,)*) => {
+    (impl bindings $($prefix:literal;)? $curr_name:ident; $cause:literal; ; $($proccessed_keys:literal: $bindings:ident,)*) => {
         juniper::graphql_value!({
+            $("field": $prefix,)?
             "cause": $cause,
             $($proccessed_keys: $bindings),*
         })
     };
 
     (impl bindings
+        $($prefix:literal;)?
         $curr_name:ident; $cause:literal;
         $key:literal: $value:expr, $($other_keys:literal: $other_values:expr,)*;
         $($proccessed_keys:literal: $bindings:ident,)*
@@ -98,21 +100,22 @@ macro_rules! build_error_value {
             paste::paste! {
                 {
                     let [<$curr_name 0>] = $value;
-                    $crate::utils::macros::build_error_value! { impl bindings [<$curr_name 0>]; $cause; $($other_keys: $other_values,)*; $key: [<$curr_name 0>], $($proccessed_keys: $bindings,)*}
+                    $crate::utils::macros::build_error_value! { impl bindings $($prefix;)? [<$curr_name 0>]; $cause; $($other_keys: $other_values,)*; $key: [<$curr_name 0>], $($proccessed_keys: $bindings,)*}
                 }
             }
     };
 
-    (impl val_gen $cause:literal; $curr_name:ident; ; $($other_keys:literal: $other_vals:ident,)*) => {
+    (impl val_gen $($prefix:literal;)? $cause:literal; $curr_name:ident; ; $($other_keys:literal: $other_vals:ident,)*) => {
         juniper::graphql_value!({
+            $("field": $prefix,)?
             "cause": $cause,
             $($other_keys: $other_vals),*
         })
     };
 
-    (impl val_gen $cause:literal; $curr_name:ident; $key:literal, $($unprocessed_keys:literal,)*; $($processed_keys:literal: $processed_vals:ident,)*) => {
+    (impl val_gen $($prefix:literal;)? $cause:literal; $curr_name:ident; $key:literal, $($unprocessed_keys:literal,)*; $($processed_keys:literal: $processed_vals:ident,)*) => {
         paste::paste! {
-            build_error_value! { impl val_gen $cause; [<$curr_name 0>]; $($unprocessed_keys,)*; $($processed_keys: $processed_vals,)* $key: [<$curr_name 0>], }
+            build_error_value! { impl val_gen $($prefix;)? $cause; [<$curr_name 0>]; $($unprocessed_keys,)*; $($processed_keys: $processed_vals,)* $key: [<$curr_name 0>], }
         }
     };
 }
@@ -126,48 +129,15 @@ pub(crate) use build_error_value as build_error_value;
 /// juniper's [graphql_value][juniper::graphql_value] macro
 /// doesn't allow expressions directly as values.
 macro_rules! build_error {
-    ($reason:literal; $cause:literal => { $($other_keys:literal: $other_values:expr,)* }) => {
+    ($(prefix: $prefix:literal;)? $reason:literal; $cause:literal => { $($other_keys:literal: $other_values:expr,)* }) => {
         {
             use juniper::graphql_value;
-            let err_value = $crate::utils::macros::build_error_value!($cause => { $($other_keys: $other_values,)* });
+            let err_value = $crate::utils::macros::build_error_value!($(prefix: $prefix;)? $cause => { $($other_keys: $other_values,)* });
             
             juniper::FieldError::new(
                 $crate::graphql::prelude::get_dsv_cloned($reason),
                 err_value
             )
-        }
-    };
-
-    (impl bindings $curr_name:ident; $cause:literal; ; $($proccessed_keys:literal: $bindings:ident,)*) => {
-        juniper::graphql_value!({
-            "cause": $cause,
-            $($proccessed_keys: $bindings),*
-        })
-    };
-
-    (impl bindings
-        $curr_name:ident; $cause:literal;
-        $key:literal: $value:expr, $($other_keys:literal: $other_values:expr,)*;
-        $($proccessed_keys:literal: $bindings:ident,)*
-    ) => {
-            paste::paste! {
-                {
-                    let [<$curr_name 0>] = $value;
-                    $crate::utils::macros::build_error! { impl bindings [<$curr_name 0>]; $cause; $($other_keys: $other_values,)*; $key: [<$curr_name 0>], $($proccessed_keys: $bindings,)*}
-                }
-            }
-    };
-
-    (impl val_gen $cause:literal; $curr_name:ident; ; $($other_keys:literal: $other_vals:ident,)*) => {
-        juniper::graphql_value!({
-            "cause": $cause,
-            $($other_keys: $other_vals),*
-        })
-    };
-
-    (impl val_gen $cause:literal; $curr_name:ident; $key:literal, $($unprocessed_keys:literal,)*; $($processed_keys:literal: $processed_vals:ident,)*) => {
-        paste::paste! {
-            build_error! { impl val_gen $cause; [<$curr_name 0>]; $($unprocessed_keys,)*; $($processed_keys: $processed_vals,)* $key: [<$curr_name 0>], }
         }
     };
 }
@@ -319,7 +289,8 @@ pub(crate) use make_sql_enum as make_sql_enum;
 /// FIXME: This documentation NEEDS to be improved. An example should be provided.
 macro_rules! make_static_enum_error {
     (
-        $($scalar_value_param:ident;;)?
+        $(<$scalar_value_param:ident>)?
+        $(prefix: $prefix_literal:literal;)?
         $(#[$attr:meta])+
         $qual:vis $name:ident $(< $( $lt:ty $( : $clt:ty )? ),+ >)?;
         $($(#[$variant_attr:meta])+ $variant:ident ( $($member:ty),* )
@@ -338,8 +309,9 @@ macro_rules! make_static_enum_error {
             }
 
             make_static_enum_error!{
-                @impl impl_block
+                @impl impl_block_filter
                 $($scalar_value_param)?
+                ($(, $prefix_literal)? , "")
                 $name $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?;
                 $(
                     $variant
@@ -385,8 +357,36 @@ macro_rules! make_static_enum_error {
             }
         }
     };
+    (@impl impl_block_filter
+        $($scalar_value_param:ident)?
+        (, $prefix_literal:literal $(, $_ignore_prefix_literal:literal)?)
+        $name:ident $(< $( $lt:ty $( : $clt:ty )? ),+ >)?;
+        $(
+            $variant:ident
+                => $reason:literal,
+                    $cause:literal ==> |$($closure_param:ident),*| {
+                        $($other_keys:literal: $other_values:expr,)*
+                    };
+        )*
+    ) => {
+        make_static_enum_error!{
+            @impl impl_block
+            $($scalar_value_param)?
+            $prefix_literal;
+            $name $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?;
+            $(
+                $variant
+                    => $reason,
+                        $cause ==> |$($closure_param),*| {
+                            $($other_keys: $other_values,)*
+                        };
+            )*
+        }
+    };
+
     (@impl impl_block
         $scalar_value_param:ident
+        $prefix_literal:literal;
         $name:ident $(< $( $lt:ty $( : $clt:ty )? ),+ >)?;
         $(
             $variant:ident
@@ -403,6 +403,7 @@ macro_rules! make_static_enum_error {
                 match self {
                     $(
                         $variant ($($closure_param),*) => $crate::utils::macros::build_error!(
+                            prefix: $prefix_literal;
                             $reason; $cause => {
                                 $($other_keys: $other_values,)*
                             }
@@ -419,6 +420,7 @@ macro_rules! make_static_enum_error {
                 match self_enum {
                     $(
                         $variant ($($closure_param),*) => $crate::utils::macros::build_error_value!(
+                            prefix: $prefix_literal;
                             $cause => {
                                 $($other_keys: $other_values,)*
                             }
@@ -430,6 +432,7 @@ macro_rules! make_static_enum_error {
         }
     };
     (@impl impl_block
+        $prefix_literal:literal;
         $name:ident $(< $( $lt:ty $( : $clt:ty )? ),+ >)?;
         $(
             $variant:ident
@@ -446,6 +449,7 @@ macro_rules! make_static_enum_error {
                 match self {
                     $(
                         $variant ($($closure_param),*) => $crate::utils::macros::build_error!(
+                            prefix: $prefix_literal;
                             $reason; $cause => {
                                 $($other_keys: $other_values,)*
                             }
@@ -462,6 +466,7 @@ macro_rules! make_static_enum_error {
                 match self_enum {
                     $(
                         $variant ($($closure_param),*) => $crate::utils::macros::build_error_value!(
+                            prefix: $prefix_literal;
                             $cause => {
                                 $($other_keys: $other_values,)*
                             }

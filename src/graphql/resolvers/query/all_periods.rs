@@ -28,6 +28,7 @@ make_unit_enum_error! {
 }
 
 make_static_enum_error! {
+    prefix: "allPeriods";
     /// This struct contains all the possible error types that can occur when executing the all_periods query.
     /// All 3 of the types are server errors (S).
     pub AllPeriodsError;
