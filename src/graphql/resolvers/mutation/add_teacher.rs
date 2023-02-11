@@ -76,18 +76,17 @@ pub async fn add_teacher(
     name: &str,
 ) -> Result<TeacherMetadata, AddTeacherError> {
 
-    let (ctbn, at, gtbn) = tokio::join!(
-        read::teacher_id_by_name_query(db_client),
+    let (at, gtbn) = tokio::join!(
         modifying::add_teacher_query(db_client),
         read::get_teacher_by_name_query(db_client),
     );
 
-    let (ctbn, at, gtbn) = handle_prepared!(
-        ctbn, at, gtbn;
+    let (at, gtbn) = handle_prepared!(
+        at, gtbn;
         AddTeacherError::PreparedQueryError
     )?;
 
-    if let Some(err) = check_teacher_duplicate(db_client, name, ctbn).await {
+    if let Some(err) = check_teacher_duplicate(db_client, name, gtbn).await {
         Err(err)
     } else if let Some(modify_error) = add_teacher_to_db(db_client, name, at).await {
         Err(modify_error)

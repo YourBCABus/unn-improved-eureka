@@ -1,3 +1,4 @@
+use tokio_postgres::Transaction;
 use uuid::Uuid;
 
 use crate::utils::list_to_value;
@@ -19,6 +20,9 @@ use crate::macros::{
 make_unit_enum_error! {
     /// Database execution errors
     pub DbExecError
+        TransactionInit => "transaction_init"
+        TransactionCommit => "transaction_commit"
+        ClearPeriods => "clear_periods"
         Delete => "delete_teacher"
 }
 
@@ -60,15 +64,32 @@ pub async fn delete_teacher(
     id: TeacherId,
 ) -> Result<(), DeleteTeacherError> {
     let dtq = modifying::delete_teacher_query(db_client).await;
+    let cpft = modifying::clear_periods_for_teacher_query(db_client).await;
 
-    let dtq = handle_prepared!(
-        dtq;
+    let (dtq, cpft) = handle_prepared!(
+        dtq, cpft;
         DeleteTeacherError::PreparedQueryError
     )?;
     
     let (id, _) = id.try_into_uuid().map_err(DeleteTeacherError::IdFormatError)?;
 
-    delete_teacher_by_id(&id, db_client, dtq).await
+
+    let transaction = db_client.transaction().await;
+    let transaction = transaction.map_err(|_| DeleteTeacherError::ExecError(DbExecError::TransactionInit))?;
+
+    clear_teacher_periods(&id, &transaction, cpft).await?;
+    delete_teacher_by_id(&id, &transaction, dtq).await?;
+
+    transaction.commit().await.map_err(|_| DeleteTeacherError::ExecError(DbExecError::TransactionCommit))?;
+    
+    Ok(())
+}
+
+async fn clear_teacher_periods(id: &Uuid, transaction: &Transaction<'_>, cpft: &Statement) -> Result<u64, DeleteTeacherError> {
+    transaction
+        .execute(cpft, &[&id])
+        .await
+        .map_err(|_| DeleteTeacherError::ExecError(DbExecError::ClearPeriods))
 }
 
 /// Attempts to permanantly delete a teacher from the DB.
@@ -87,10 +108,11 @@ pub async fn delete_teacher(
 ///     Err(err) => eprintln!("Deleting the teacher failed: {:?}", err),
 /// }
 /// ```
-async fn delete_teacher_by_id(id: &Uuid, db_client: &Client, dtq: &Statement) -> Result<(), DeleteTeacherError> {
-    let rows_modified = db_client
+async fn delete_teacher_by_id(id: &Uuid, transaction: &Transaction<'_>, dtq: &Statement) -> Result<(), DeleteTeacherError> {
+    let rows_modified = transaction
         .execute(dtq, &[&id])
         .await
+        .map_err(|a| dbg!(a))
         .map_err(|_| DeleteTeacherError::ExecError(DbExecError::Delete))?;
     if rows_modified == 1 {
         Ok(())

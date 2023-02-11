@@ -54,6 +54,11 @@ impl MutationRoot {
             .map_err(IntoFieldError::into_field_error)
     }
 
+    #[graphql(arguments(
+        id(),
+        names(default = Vec::new()),
+        fully_absent(),
+    ),)]
     async fn update_teacher_absence(
         ctx: &Context,
         id: TeacherId,

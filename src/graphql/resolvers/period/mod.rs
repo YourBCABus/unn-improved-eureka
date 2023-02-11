@@ -2,7 +2,7 @@
 use std::fmt::Display;
 
 use super::teacher::TeacherMetadata;
-use juniper::graphql_object;
+use juniper::{graphql_object, IntoFieldError, FieldResult};
 
 use crate::graphql_types::{
     scalars::period::*,
@@ -10,7 +10,7 @@ use crate::graphql_types::{
 };
 use crate::utils::structs::PeriodRow;
 
-
+pub mod teachers_absent;
 
 /// This struct represents a Period with no teacher information associated with the absence_state.
 /// 
@@ -55,8 +55,15 @@ impl Display for PeriodMetadata {
     description = "This type represents the a specific period of the day.",
 )]
 impl PeriodMetadata {
-    async fn teachers_absent(&self) -> Vec<TeacherMetadata> {
-        Vec::new()
+    async fn teachers_absent(
+        &self,
+        ctx: &Context,
+    ) -> FieldResult<Vec<TeacherMetadata>> {
+        let db_context = ctx.get_db_mut().await;
+
+        teachers_absent::absent_periods(&self.id.uuid(), &db_context.client)
+            .await
+            .map_err(IntoFieldError::into_field_error)
     }
 
     fn id(&self) -> &PeriodId {
