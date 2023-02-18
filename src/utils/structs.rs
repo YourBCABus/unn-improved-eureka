@@ -45,6 +45,7 @@ impl StdError for BodyDeserializeError {
 
 impl Reject for BodyDeserializeError {}
 
+use crate::graphql::resolvers::PronounSet;
 use crate::{
     graphql_types::scalars::{
         teacher::*,
@@ -66,13 +67,17 @@ pub struct TeacherRow {
 
     /// A combination of the `isabsent` and `fullyabsent` fields conglomerated into 1 enum.
     pub presence: TeacherPresence,
+
+    pub pronoun_set: PronounSet,
+
+    pub honorific: String,
 }
 
 impl TryFrom<Row> for TeacherRow {
     type Error = Cow<'static, str>;
     fn try_from(row: Row) -> Result<Self, Self::Error> {
         /// FIXME: Centralize this constant.
-        const COL_NAMES: [&str; 4] = ["teacherid", "teachername", "isabsent", "fullyabsent"];
+        const COL_NAMES: [&str; 6] = ["teacherid", "teachername", "isabsent", "fullyabsent", "honorific", "pronouns"];
 
 
         match (row.try_get(COL_NAMES[0]), row.try_get(COL_NAMES[1])) {
@@ -83,7 +88,16 @@ impl TryFrom<Row> for TeacherRow {
                     (Ok(_), Ok(true)) => TeacherPresence::FullAbsent,
                     (Ok(true), Ok(false)) => TeacherPresence::PartAbsent,
                     (Ok(false), Ok(false)) => TeacherPresence::FullPresent,
-                    _ => Err(Cow::from("Row does not contain valid absence state"))?,
+                    _ => return Err("Row does not contain valid absence state".into()),
+                },
+                honorific: match row.try_get(COL_NAMES[4]) {
+                    Ok(string) => string,
+                    Err(_) => return Err(formatcp!("Row does not contain {:?}", COL_NAMES[4]).into()),
+                },
+                pronoun_set: match row.try_get(COL_NAMES[5]).map(|db_string: String| PronounSet::try_new(&db_string)) {
+                    Ok(Ok(set_input)) => set_input,
+                    Ok(Err(_)) => return Err("Row does not contain valid pronoun set".into()),
+                    Err(_) => return Err(formatcp!("Row does not contain {:?}", COL_NAMES[5]).into()),
                 },
             }),
             (Ok(_), Err(_)) => Err(formatcp!("Row does not contain {:?}", COL_NAMES[1]).into()),

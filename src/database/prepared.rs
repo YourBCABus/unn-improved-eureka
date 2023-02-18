@@ -7,8 +7,36 @@ pub mod modifying {
     use crate::preludes::macros::define_shared_query_name;
 
     // Teacher-specific modifying sql queries:
-    define_shared_query_name!(pub add_teacher_query: "INSERT INTO teachers (teacherName, isAbsent, fullyAbsent) VALUES($1, false, false);");
-    define_shared_query_name!(pub update_teacher_query: "UPDATE teachers SET teacherName = $2, isAbsent = $3, fullyAbsent = $4 WHERE teacherId = $1;");
+    define_shared_query_name!(pub add_teacher_query: "
+        INSERT INTO teachers
+            (teacherName, isAbsent, fullyAbsent, honorific, pronouns)
+            VALUES($1, false, false, $2, $3);
+    ");
+    define_shared_query_name!(pub update_teacher_metadata_query: "
+        UPDATE teachers
+        SET
+            teacherName = $2,
+            honorific = $3,
+            pronouns = $4
+        WHERE teacherId = $1;
+    ");
+    define_shared_query_name!(pub update_teacher_absence_metadata_query: "
+        UPDATE teachers
+        SET
+            isAbsent = $2,
+            fullyAbsent = $3
+        WHERE teacherId = $1;
+    ");
+    // define_shared_query_name!(pub update_teacher_query: "
+    //     UPDATE teachers
+    //     SET
+    //         teacherName = $2,
+    //         isAbsent = $3,
+    //         fullyAbsent = $4,
+    //         honorific = $5,
+    //         pronouns = $6
+    //     WHERE teacherId = $1;
+    // ");
     define_shared_query_name!(pub delete_teacher_query: "DELETE FROM teachers WHERE TeacherId = $1;");
     
     // Period-specific modifying sql queries:

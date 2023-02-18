@@ -18,7 +18,7 @@ use crate::graphql_types::{
     scalars::teacher::*,
     scalars::period::*,
     juniper_types::IntoFieldError,
-    *, inputs::TimeRangeInput,
+    *, inputs::{TimeRangeInput, PronounSetInput},
 };
 
 use super::{teacher::TeacherMetadata, period::PeriodMetadata};
@@ -49,12 +49,14 @@ impl MutationRoot {
     async fn update_teacher(
         ctx: &Context,
         id: TeacherId,
-        name: String,
+        name: Option<String>,
+        honorific: Option<String>,
+        pronouns: Option<PronounSetInput>,
     ) -> juniper::FieldResult<TeacherMetadata> {
         let mut db_context_mut = ctx.get_db_mut().await;
 
         update_teacher
-            ::update_teacher(&mut db_context_mut.client, id, &name)
+            ::update_teacher(&mut db_context_mut.client, id, name.as_deref(), honorific.as_deref(), pronouns.as_ref())
             .await
             .map_err(IntoFieldError::into_field_error)
     }

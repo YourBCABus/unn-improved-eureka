@@ -2,16 +2,11 @@ use std::borrow::Cow;
 
 use uuid::Uuid;
 
-use crate::graphql::resolvers::period::PeriodMetadata;
 use crate::graphql::resolvers::teacher::TeacherMetadata;
 use crate::utils::list_to_value;
 use crate::database::prelude::*;
 
-use crate::utils::structs::PeriodRow;
-use crate::{
-    preludes::graphql::*,
-    graphql::resolvers::absence_state::AbsenceStateMetadata,
-};
+use crate::preludes::graphql::*;
 
 use crate::macros::{
     handle_prepared,

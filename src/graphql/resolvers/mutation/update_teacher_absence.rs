@@ -90,7 +90,7 @@ pub async fn update_teacher_absence(
         gtbi,
         pbn, apq,
         cpft, atp,
-        utq,
+        utamq,
     ) = tokio::join!(
         read::get_teacher_by_id_query(db_client),
 
@@ -100,19 +100,19 @@ pub async fn update_teacher_absence(
         modifying::clear_periods_for_teacher_query(db_client),
         modifying::add_teacher_periods(db_client),
         
-        modifying::update_teacher_query(db_client),
+        modifying::update_teacher_absence_metadata_query(db_client),
     );
 
     let (
         gtbi,
         pbn, apq,
         cpft, atp,
-        utq,
+        utamq,
     ) = handle_prepared!(
         gtbi,
         pbn, apq,
         cpft, atp,
-        utq;
+        utamq;
         UpdateTeacherAbsenceError::PreparedQueryError
     )?;
     
@@ -120,8 +120,7 @@ pub async fn update_teacher_absence(
     
     let transaction = db_client.transaction().await.unwrap();
 
-
-    let teacher_row = get_teacher_by_id_query(&teacher_id, &transaction, gtbi).await?;
+    get_teacher_by_id_query(&teacher_id, &transaction, gtbi).await?;
 
     let periods = if fully_absent {
         get_all_periods_query(&transaction, apq).await?
@@ -132,7 +131,7 @@ pub async fn update_teacher_absence(
     clear_teacher_periods(&teacher_id, &transaction, cpft).await?;
     set_teacher_periods(&teacher_id, periods.iter().map(|p| p.id.uuid()), &transaction, atp).await?;
 
-    update_teacher_query(&teacher_id, (teacher_row.name.name_str(), !periods.is_empty(), fully_absent), &transaction, utq).await?;
+    update_teacher_query(&teacher_id, (!periods.is_empty(), fully_absent), &transaction, utamq).await?;
 
     let teacher_row = get_teacher_by_id_query(&teacher_id, &transaction, gtbi).await?;
 
@@ -213,12 +212,12 @@ async fn set_teacher_periods(teacher_id: &Uuid, period_ids: impl Iterator<Item =
 
 async fn update_teacher_query(
     id: &Uuid,
-    (name, is_absent, fully_absent): (&str, bool, bool),
+    (is_absent, fully_absent): (bool, bool),
     transaction: &Transaction<'_>,
-    utq: &Statement,
+    utamq: &Statement,
 ) -> Result<(), UpdateTeacherAbsenceError> {
     let rows_modified = transaction
-        .execute(utq, &[&id, &name, &is_absent, &fully_absent])
+        .execute(utamq, &[&id, &is_absent, &fully_absent])
         .await
         .map_err(|_| UpdateTeacherAbsenceError::ExecError(DbExecError::Modify))?;
 

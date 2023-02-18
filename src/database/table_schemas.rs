@@ -34,6 +34,17 @@ pub mod Teachers {
             PartAbsent => "part_absent"
             FullAbsent => "full_absent"
         }
+        impl TeacherPresence {
+            // TODO: Document thoroughly
+            /// (absent, fullyAbsent)
+            pub fn get_absent_tup(&self) -> (bool, bool) {
+                match self {
+                    Self::FullPresent => (false, false),
+                    Self::PartAbsent => (true, false),
+                    Self::FullAbsent => (true, true),
+                }
+            }
+        }
     }
 }
 

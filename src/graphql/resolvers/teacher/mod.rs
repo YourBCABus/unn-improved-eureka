@@ -2,6 +2,7 @@
 use std::fmt::Display;
 
 use super::*;
+use super::pronoun_set::PronounSet;
 use absence_state::AbsenceStateMetadata;
 use juniper::graphql_object;
 
@@ -25,6 +26,24 @@ pub struct TeacherMetadata {
     pub id: TeacherId,
     /// The name of the teacher. A String wrapper.
     pub name: TeacherName,
+
+    /// The honorific of a the teacher.
+    /// 
+    /// Examples: `Mr.`, `Ms.`, `Mx.`, `Dr.`, etc.
+    pub honorific: String,
+
+    /// The pronouns of the teacher. Contains:
+    /// - The entire set of `[sub, obj, posadj, pospro, ref]`.
+    /// - Grammatical plurality information. (Like `he is` vs `they are`)
+    /// (This model supports neopronouns.)
+    /// 
+    /// Examples:
+    /// - `[ she,  her,   her,   hers,  herself], false`
+    /// - `[  he,  him,   his,    his,  himself], false`
+    /// - `[they, them, their, theirs, themself], true`
+    /// - `[  xe,  xem,   xyr,   xyrs,  xemself], false`
+    pub pronouns: PronounSet,
+    
     /// The stripped absence state of the teacher.
     pub absence_state_meta: TeacherPresence,
 }
@@ -34,6 +53,8 @@ impl From<TeacherRow> for TeacherMetadata {
         Self {
             id: row.id,
             name: row.name,
+            honorific: row.honorific,
+            pronouns: row.pronoun_set,
             absence_state_meta: row.presence,
         }
     }
@@ -69,6 +90,14 @@ impl TeacherMetadata {
     }
     fn name(&self) -> &TeacherName {
         &self.name
+    }
+
+    fn pronouns(&self) -> &PronounSet {
+        &self.pronouns
+    }
+
+    fn honorific(&self) -> &str {
+        &self.honorific
     }
 }
 
