@@ -1,0 +1,28 @@
+name: Build Dev Version
+
+on:
+  workflow_dispatch:
+  
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build with Release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+    - run: cargo build --release --all-features
+    
+    
+    - name: Check out repository
+      uses: actions/upload-artifact@v3.1.2
+      with:
+        name: dev-deploy-executable
+        path: target/release/improved-eureka
