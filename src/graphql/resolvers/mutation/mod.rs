@@ -14,6 +14,8 @@ mod update_teacher_absence;
 mod clear_absences;
 mod clear_temp_times;
 
+use juniper::FieldError;
+
 use crate::graphql_types::{
     scalars::teacher::*,
     scalars::period::*,
@@ -37,11 +39,13 @@ impl MutationRoot {
     async fn add_teacher(
         ctx: &Context,
         name: String,
+        honorific: String,
+        pronouns: PronounSetInput,
     ) -> juniper::FieldResult<TeacherMetadata> {
         let mut db_context_mut = ctx.get_db_mut().await;
-        
+    
         add_teacher
-            ::add_teacher(&mut db_context_mut.client, &name)
+            ::add_teacher(&mut db_context_mut.client, &name, &honorific, &pronouns)
             .await
             .map_err(IntoFieldError::into_field_error)
     }

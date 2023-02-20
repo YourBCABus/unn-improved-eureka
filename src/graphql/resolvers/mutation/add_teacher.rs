@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use uuid::Uuid;
 
 use crate::graphql::resolvers::teacher::TeacherMetadata;
+use crate::graphql_types::inputs::PronounSetInput;
 use crate::utils::list_to_value;
 use crate::database::prelude::*;
 
@@ -75,6 +76,8 @@ make_static_enum_error! {
 pub async fn add_teacher(
     db_client: &mut Client,
     name: &str,
+    honorific: &str,
+    pronouns: &PronounSetInput,
 ) -> Result<TeacherMetadata, AddTeacherError> {
 
     let (at, gtbn) = tokio::join!(
@@ -89,7 +92,7 @@ pub async fn add_teacher(
 
     if let Some(err) = check_teacher_duplicate(db_client, name, gtbn).await {
         Err(err)
-    } else if let Some(modify_error) = add_teacher_to_db(db_client, name, at).await {
+    } else if let Some(modify_error) = add_teacher_to_db(db_client, name, honorific, &pronouns.format_sql(), at).await {
         Err(modify_error)
     } else { 
         get_teacher(db_client, name, gtbn).await.map(Into::into)
@@ -139,12 +142,12 @@ async fn check_teacher_duplicate(db_client: &Client, name: &str, gtbn: &Statemen
 ///     None => println!("Teacher added successfully"),
 /// }
 /// ```
-async fn add_teacher_to_db(db_client: &Client, name: &str, at: &Statement) -> Option<AddTeacherError> {
+async fn add_teacher_to_db(db_client: &Client, name: &str, honorific: &str, pronouns: &str, at: &Statement) -> Option<AddTeacherError> {
     use AddTeacherError::*;
     use self::DbExecError::*;
 
 
-    let query_result = db_client.execute(at, &[&name]).await;
+    let query_result = db_client.execute(at, &[&name, &honorific, &pronouns]).await;
     if let Ok(1) = query_result {
         None
     } else {
