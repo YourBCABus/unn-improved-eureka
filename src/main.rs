@@ -20,7 +20,11 @@ use warp::reject;
 
 #[tokio::main]
 async fn main() {
-    let postgres_connect_result = connect_with("localhost", "eureka").await;
+    let user = std::env::var("DB_USER").unwrap_or_else(|_| "eureka".to_string());
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8000".to_string());
+    let port = port.parse().unwrap_or(8000);
+
+    let postgres_connect_result = connect_with("localhost", &user).await;
     let db_ctx = match postgres_connect_result {
         Ok(client) => client,
         Err(e) => panic!("failed to connect to eureka db: {}", e),
@@ -62,5 +66,5 @@ async fn main() {
         .and(warp::path!("graphiql"))
         .map(|| warp::reply::html(graphiql_source("graphql", None)));
 
-    warp::serve(graphql_route.or(graphiql_route)).run(([127, 0, 0, 1], 8000)).await;
+    warp::serve(graphql_route.or(graphiql_route)).run(([127, 0, 0, 1], port)).await;
 }
