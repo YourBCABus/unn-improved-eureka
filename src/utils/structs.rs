@@ -62,8 +62,11 @@ pub struct TeacherRow {
     /// The id in the `teacherid` field.
     pub id: TeacherId,
     
-    /// The name in the `teachername` field.
-    pub name: TeacherName,
+    /// The value in the `firstname` field.
+    pub first_name: String,
+
+    /// The value in the `lastname` field.
+    pub last_name: String,
 
     /// A combination of the `isabsent` and `fullyabsent` fields conglomerated into 1 enum.
     pub presence: TeacherPresence,
@@ -77,32 +80,60 @@ impl TryFrom<Row> for TeacherRow {
     type Error = Cow<'static, str>;
     fn try_from(row: Row) -> Result<Self, Self::Error> {
         /// FIXME: Centralize this constant.
-        const COL_NAMES: [&str; 6] = ["teacherid", "teachername", "isabsent", "fullyabsent", "honorific", "pronouns"];
+        const COL_NAMES: [&str; 7] = [
+            "teacherid",
+            "firstname", "lastname",
+            "honorific", "pronouns",
+            "isabsent", "fullyabsent",
+        ];
 
 
-        match (row.try_get(COL_NAMES[0]), row.try_get(COL_NAMES[1])) {
-            (Ok(id), Ok(name)) => Ok(Self {
+        match (
+            row.try_get(COL_NAMES[0]),
+            row.try_get(COL_NAMES[1]),
+            row.try_get(COL_NAMES[2]),
+        ) {
+            (
+                Ok(id),
+                Ok(first_name),
+                Ok(last_name),
+            ) => Ok(Self {
                 id: TeacherId::new(&id),
-                name: TeacherName::new(name), 
-                presence: match (row.try_get(COL_NAMES[2]), row.try_get(COL_NAMES[3])) {
+                first_name,
+                last_name,
+                presence: match (row.try_get(COL_NAMES[5]), row.try_get(COL_NAMES[6])) {
                     (Ok(_), Ok(true)) => TeacherPresence::FullAbsent,
                     (Ok(true), Ok(false)) => TeacherPresence::PartAbsent,
                     (Ok(false), Ok(false)) => TeacherPresence::FullPresent,
                     _ => return Err("Row does not contain valid absence state".into()),
                 },
-                honorific: match row.try_get(COL_NAMES[4]) {
+                honorific: match row.try_get(COL_NAMES[3]) {
                     Ok(string) => string,
-                    Err(_) => return Err(formatcp!("Row does not contain {:?}", COL_NAMES[4]).into()),
+                    Err(_) => return Err(formatcp!("Row does not contain {:?}", COL_NAMES[3]).into()),
                 },
-                pronoun_set: match row.try_get(COL_NAMES[5]).map(|db_string: String| PronounSet::try_new(&db_string)) {
+                pronoun_set: match row.try_get(COL_NAMES[4]).map(|db_string: String| PronounSet::try_new(&db_string)) {
                     Ok(Ok(set_input)) => set_input,
                     Ok(Err(_)) => return Err("Row does not contain valid pronoun set".into()),
-                    Err(_) => return Err(formatcp!("Row does not contain {:?}", COL_NAMES[5]).into()),
+                    Err(_) => return Err(formatcp!("Row does not contain {:?}", COL_NAMES[4]).into()),
                 },
             }),
-            (Ok(_), Err(_)) => Err(formatcp!("Row does not contain {:?}", COL_NAMES[1]).into()),
-            (Err(_), Ok(_)) => Err(formatcp!("Row does not contain {:?}", COL_NAMES[0]).into()),
-            (Err(_), Err(_)) => Err(formatcp!("Row does not contain {:?}, {:?}", COL_NAMES[0], COL_NAMES[1]).into()),
+            (id, first, last) => {
+                let mut formatted = "Row does not contain ".to_string();
+                if id.is_err() {
+                    formatted.push_str(COL_NAMES[0]);
+                    formatted.push_str(", ");
+                }
+                if first.is_err() {
+                    formatted.push_str(COL_NAMES[1]);
+                    formatted.push_str(", ");
+                }
+                if last.is_err() {
+                    formatted.push_str(COL_NAMES[2]);
+                    formatted.push_str(", ");
+                }
+                formatted.truncate(formatted.len() - 2);
+                Err(formatted.into())
+            }
         }
     }
 }

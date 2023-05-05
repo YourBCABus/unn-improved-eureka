@@ -2,6 +2,7 @@
 use std::fmt::Display;
 
 use super::*;
+use super::name_parts::NameParts;
 use super::pronoun_set::PronounSet;
 use absence_state::AbsenceStateMetadata;
 use juniper::graphql_object;
@@ -24,13 +25,9 @@ use crate::database::prelude::{TeacherRow, TeacherPresence};
 pub struct TeacherMetadata {
     /// The id of the teacher. This is essentially a wrapper for a UUID, but is (de)serializable for juniper.
     pub id: TeacherId,
-    /// The name of the teacher. A String wrapper.
-    pub name: TeacherName,
 
-    /// The honorific of a the teacher.
-    /// 
-    /// Examples: `Mr.`, `Ms.`, `Mx.`, `Dr.`, etc.
-    pub honorific: String,
+    /// The parts of the name a teacher. See [NameParts] for more info.
+    pub name: NameParts,
 
     /// The pronouns of the teacher. Contains:
     /// - The entire set of `[sub, obj, posadj, pospro, ref]`.
@@ -52,8 +49,7 @@ impl From<TeacherRow> for TeacherMetadata {
     fn from(row: TeacherRow) -> Self {
         Self {
             id: row.id,
-            name: row.name,
-            honorific: row.honorific,
+            name: NameParts::new(row.first_name, row.last_name, row.honorific),
             pronouns: row.pronoun_set,
             absence_state_meta: row.presence,
         }
@@ -70,7 +66,7 @@ impl TeacherMetadata {
 
 impl Display for TeacherMetadata {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "TeacherMetadata<{}> ({})", self.name.name_str(), self.id.id_str())
+        write!(f, "TeacherMetadata<{}> ({})", self.name.full_name(), self.id.id_str())
     }
 }
 
@@ -88,8 +84,11 @@ impl TeacherMetadata {
     fn id(&self) -> &TeacherId {
         &self.id
     }
-    fn name(&self) -> &TeacherName {
-        &self.name
+    fn honorific_full_name(&self) -> String {
+        self.name.full_name_honorific()
+    }
+    fn full_name(&self) -> String {
+        self.name.full_name()
     }
 
     fn pronouns(&self) -> &PronounSet {
@@ -97,7 +96,11 @@ impl TeacherMetadata {
     }
 
     fn honorific(&self) -> &str {
-        &self.honorific
+        self.name.honorific()
+    }
+
+    fn name_parts(&self) -> &NameParts {
+        &self.name
     }
 }
 

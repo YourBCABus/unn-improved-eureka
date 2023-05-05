@@ -1,7 +1,6 @@
 //! This module contains all the functions and methods *specifically* required for rolling HMAC verification.
 //! Other verification methods should go in other modules.
 
-use guard::guard;
 use uuid::Uuid;
 use warp::{Filter, hyper::body::Bytes, Rejection};
 
@@ -27,9 +26,7 @@ pub fn verify_payload(payload: &Payload, signature: &Signature, counter: &[u8], 
         .map(|(raw, xor)| raw ^ xor)
         .collect();
 
-    guard!(
-        let Ok(mac) = Hmac::<Sha256>::new_from_slice(&acting_secret) else { return false; }
-    );
+    let Ok(mac) = Hmac::<Sha256>::new_from_slice(&acting_secret) else { return false; };
     
     let mac = mac.chain_update(payload.slice());
     

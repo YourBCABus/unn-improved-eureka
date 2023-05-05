@@ -70,7 +70,8 @@ make_static_enum_error! {
 pub async fn update_teacher(
     db_client: &mut Client,
     id: TeacherId,
-    new_name: Option<&str>,
+    new_first_name: Option<&str>,
+    new_last_name: Option<&str>,
     new_honorific: Option<&str>,
     new_pronouns: Option<&PronounSetInput>,
 ) -> Result<TeacherMetadata, UpdateTeacherError> {
@@ -88,8 +89,9 @@ pub async fn update_teacher(
 
     let old_teacher_state = get_teacher_by_id(&id, db_client, gtbi).await?;
     
-    let name = new_name.unwrap_or_else(|| old_teacher_state.name.name_str());
-    let honorific = new_honorific.unwrap_or(&old_teacher_state.honorific);
+    let first_name = new_first_name.unwrap_or_else(|| old_teacher_state.name.first());
+    let last_name = new_last_name.unwrap_or_else(|| old_teacher_state.name.last());
+    let honorific = new_honorific.unwrap_or(&old_teacher_state.name.honorific());
     let pronouns = if let Some(pronouns) = new_pronouns {
         pronouns.format_sql()
     } else {
@@ -98,7 +100,8 @@ pub async fn update_teacher(
 
     update_teacher_query(
         &id,
-        name,
+        first_name,
+        last_name,
         honorific,
         &pronouns,
         db_client,
@@ -157,7 +160,8 @@ async fn get_teacher_by_id(id: &Uuid, db_client: &Client, gtbi: &Statement) -> R
 async fn update_teacher_query(
     id: &Uuid,
     
-    name: &str,
+    first_name: &str,
+    last_name: &str,
     honorific: &str,
     pronouns: &str,
     
@@ -165,7 +169,7 @@ async fn update_teacher_query(
     utmq: &Statement,
 ) -> Result<(), UpdateTeacherError> {
     let rows_modified = db_client
-        .execute(utmq, &[&id, &name, &honorific, &pronouns])
+        .execute(utmq, &[&id, &first_name, &last_name, &honorific, &pronouns])
         .await
         .map_err(|_| UpdateTeacherError::ExecError(DbExecError::Modify))?;
 

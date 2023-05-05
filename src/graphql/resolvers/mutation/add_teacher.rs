@@ -75,7 +75,8 @@ make_static_enum_error! {
 /// ```
 pub async fn add_teacher(
     db_client: &mut Client,
-    name: &str,
+    first_name: &str,
+    last_name: &str,
     honorific: &str,
     pronouns: &PronounSetInput,
 ) -> Result<TeacherMetadata, AddTeacherError> {
@@ -90,12 +91,22 @@ pub async fn add_teacher(
         AddTeacherError::PreparedQueryError
     )?;
 
-    if let Some(err) = check_teacher_duplicate(db_client, name, gtbn).await {
+    if let Some(err) = check_teacher_duplicate(
+        db_client,
+        first_name,
+        last_name,
+        gtbn,
+    ).await {
         Err(err)
-    } else if let Some(modify_error) = add_teacher_to_db(db_client, name, honorific, &pronouns.format_sql(), at).await {
+    } else if let Some(modify_error) = add_teacher_to_db(
+        db_client,
+        first_name, last_name,
+        honorific, &pronouns.format_sql(),
+        at,
+    ).await {
         Err(modify_error)
     } else { 
-        get_teacher(db_client, name, gtbn).await.map(Into::into)
+        get_teacher(db_client, first_name, last_name, gtbn).await.map(Into::into)
     }
 }
 
@@ -107,19 +118,20 @@ pub async fn add_teacher(
 /// let db_client = /* get your database client here */;
 /// let gtbn_query = get_memoized_gtbn_query(&db_client).await.unwrap();
 ///
-/// let name = "Mr. Smith";
+/// let first = "Ryan Smith";
+/// let last  = "Smith";
 /// 
-/// match check_teacher_duplicate(&db_client, name, gtbn_query).await {
+/// match check_teacher_duplicate(&db_client, first, last, gtbn_query).await {
 ///     Some(AddTeacherError::DuplicateError(id)) => println!("Duplicate found with id: {}", id),
 ///     Some(err) => eprintln!("Duplicate check failed with error: {:?}", err),
 ///     None => println!("No duplicate was found"),
 /// }
 /// ```
-async fn check_teacher_duplicate(db_client: &Client, name: &str, gtbn: &Statement) -> Option<AddTeacherError> {
+async fn check_teacher_duplicate(db_client: &Client, first: &str, last: &str, gtbn: &Statement) -> Option<AddTeacherError> {
     use AddTeacherError::*;
     use self::DbExecError::*;
 
-    let query_result = db_client.query_opt(gtbn, &[&name]).await;
+    let query_result = db_client.query_opt(gtbn, &[&first, &last]).await;
     if let Ok(returned_value) = query_result {
         returned_value
             .map(|dup_teacher| DuplicateError(dup_teacher.get("TeacherId")))
@@ -142,12 +154,12 @@ async fn check_teacher_duplicate(db_client: &Client, name: &str, gtbn: &Statemen
 ///     None => println!("Teacher added successfully"),
 /// }
 /// ```
-async fn add_teacher_to_db(db_client: &Client, name: &str, honorific: &str, pronouns: &str, at: &Statement) -> Option<AddTeacherError> {
+async fn add_teacher_to_db(db_client: &Client, first: &str, last: &str, honorific: &str, pronouns: &str, at: &Statement) -> Option<AddTeacherError> {
     use AddTeacherError::*;
     use self::DbExecError::*;
 
 
-    let query_result = db_client.execute(at, &[&name, &honorific, &pronouns]).await;
+    let query_result = db_client.execute(at, &[&first, &last, &honorific, &pronouns]).await;
     if let Ok(1) = query_result {
         None
     } else {
@@ -169,11 +181,11 @@ async fn add_teacher_to_db(db_client: &Client, name: &str, honorific: &str, pron
 ///     Err(err) => eprintln!("Failed to retrieve teacher: {:?}", err),
 /// }
 /// ```
-async fn get_teacher(db_client: &Client, name: &str, gtbn: &Statement) -> Result<TeacherRow, AddTeacherError> {
+async fn get_teacher(db_client: &Client, first: &str, last: &str, gtbn: &Statement) -> Result<TeacherRow, AddTeacherError> {
     use AddTeacherError::*;
     use self::DbExecError::*;
 
-    let query_result = db_client.query_opt(gtbn, &[&name]).await;
+    let query_result = db_client.query_opt(gtbn, &[&first, &last]).await;
     if let Ok(Some(row)) = query_result {
         row
             .try_into()

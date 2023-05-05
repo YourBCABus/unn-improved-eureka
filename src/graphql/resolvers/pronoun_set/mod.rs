@@ -5,7 +5,6 @@ use std::fmt::Debug;
 
 
 use crate::graphql_types::inputs::PronounSetInput;
-use guard::guard;
 
 
 
@@ -39,13 +38,13 @@ impl PronounSet {
 
         let gramm_plu = iterator.next();
 
-        guard!(let Some(sub) = sub else { return Err(Subject) });
-        guard!(let Some(obj) = obj else { return Err(Object) });
-        guard!(let Some(pos_adj) = pos_adj else { return Err(PosAdj) });
-        guard!(let Some(pos_pro) = pos_pro else { return Err(PosPro) });
-        guard!(let Some(refx) = refx else { return Err(Refx) });
+        let Some(sub) = sub else { return Err(Subject) };
+        let Some(obj) = obj else { return Err(Object) };
+        let Some(pos_adj) = pos_adj else { return Err(PosAdj) };
+        let Some(pos_pro) = pos_pro else { return Err(PosPro) };
+        let Some(refx) = refx else { return Err(Refx) };
 
-        guard!(let Some(gramm_plu) = gramm_plu else { return Err(GrammPlu) });
+        let Some(gramm_plu) = gramm_plu else { return Err(GrammPlu) };
         let gramm_plu = match gramm_plu {
             "true" => true,
             "false" => false,

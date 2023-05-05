@@ -98,7 +98,8 @@ make_static_enum_error! {
 /// At least one of the name or ID must be provided, otherwise a contract violation error is returned.
 pub async fn get_teacher<S: ScalarValue>(
     db_client: &mut Client,
-    name: Option<TeacherName>,
+    first: Option<String>,
+    last: Option<String>,
     id: Option<TeacherId>
 ) -> Result<TeacherMetadata, GetTeacherError<S>> {
     use GetTeacherError::*;
@@ -111,8 +112,8 @@ pub async fn get_teacher<S: ScalarValue>(
         PreparedQueryError
     )?;
 
-    match (id, name) {
-        (Some(id_str), _) => {
+    match (id, first, last) {
+        (Some(id_str), _, _) => {
             let (uuid, _) = id_str.try_into_uuid().map_err(IdFormatError)?;
     
             if let Some(row) = get_teacher_row_by_id(uuid, db_client, gtbi).await? {
@@ -121,11 +122,11 @@ pub async fn get_teacher<S: ScalarValue>(
                 Err(IdDoesNotExist(uuid))
             }
         },
-        (None, Some(name)) => {
-            if let Some(row) = get_teacher_row_by_name(name.name_str(), db_client, gtbn).await? {
+        (None, Some(first), Some(last)) => {
+            if let Some(row) = get_teacher_row_by_name(&first, &last, db_client, gtbn).await? {
                 TeacherMetadata::try_from_row(row, OtherDbError)
             } else {
-                Err(NameDoesNotExist(name.into_string()))
+                Err(NameDoesNotExist(format!("{} {}", first, last)))
             }
         },
         _ => Err(ContractViolated(
@@ -166,9 +167,9 @@ async fn get_teacher_row_by_id<S: ScalarValue>(uuid: Uuid, client: &Client, gtbi
 ///     Err(e) => todo!("handle error: {}", e),
 /// };
 /// ```
-async fn get_teacher_row_by_name<S: ScalarValue>(name: &str, client: &Client, gtbn: &Statement) -> Result<Option<Row>, GetTeacherError<S>> {
+async fn get_teacher_row_by_name<S: ScalarValue>(first: &str, last: &str, client: &Client, gtbn: &Statement) -> Result<Option<Row>, GetTeacherError<S>> {
     client
-        .query_opt(gtbn, &[&name])
+        .query_opt(gtbn, &[&first, &last])
         .await
         .map_err(|_| GetTeacherError::ExecError(DbExecError::ByName))
 }

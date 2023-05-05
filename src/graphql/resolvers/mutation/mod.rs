@@ -14,8 +14,6 @@ mod update_teacher_absence;
 mod clear_absences;
 mod clear_temp_times;
 
-use juniper::FieldError;
-
 use crate::graphql_types::{
     scalars::teacher::*,
     scalars::period::*,
@@ -38,14 +36,15 @@ pub struct MutationRoot;
 impl MutationRoot {
     async fn add_teacher(
         ctx: &Context,
-        name: String,
+        first_name: String,
+        last_name: String,
         honorific: String,
         pronouns: PronounSetInput,
     ) -> juniper::FieldResult<TeacherMetadata> {
         let mut db_context_mut = ctx.get_db_mut().await;
     
         add_teacher
-            ::add_teacher(&mut db_context_mut.client, &name, &honorific, &pronouns)
+            ::add_teacher(&mut db_context_mut.client, &first_name, &last_name, &honorific, &pronouns)
             .await
             .map_err(IntoFieldError::into_field_error)
     }
@@ -53,14 +52,22 @@ impl MutationRoot {
     async fn update_teacher(
         ctx: &Context,
         id: TeacherId,
-        name: Option<String>,
+        first_name: Option<String>,
+        last_name: Option<String>,
         honorific: Option<String>,
         pronouns: Option<PronounSetInput>,
     ) -> juniper::FieldResult<TeacherMetadata> {
         let mut db_context_mut = ctx.get_db_mut().await;
 
         update_teacher
-            ::update_teacher(&mut db_context_mut.client, id, name.as_deref(), honorific.as_deref(), pronouns.as_ref())
+            ::update_teacher(
+                &mut db_context_mut.client,
+                id,
+                first_name.as_deref(),
+                last_name.as_deref(),
+                honorific.as_deref(),
+                pronouns.as_ref(),
+            )
             .await
             .map_err(IntoFieldError::into_field_error)
     }

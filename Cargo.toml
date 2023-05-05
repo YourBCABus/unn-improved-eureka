@@ -10,7 +10,6 @@ async-once-cell = "0.4.2"
 chrono = "0.4.23"
 const_format = "0.2.30"
 futures = "0.3.26"
-guard = "0.5.1"
 hex = "0.4.3"
 hmac = "0.12.1"
 juniper = { version = "0.15.10", features = ["schema-language"] }

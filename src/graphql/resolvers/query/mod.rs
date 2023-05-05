@@ -29,13 +29,14 @@ pub struct QueryRoot;
 impl QueryRoot {
     async fn get_teacher(
         ctx: &Context,
-        name: Option<TeacherName>,
+        first_name: Option<String>,
+        last_name: Option<String>,
         id: Option<TeacherId>
     ) -> juniper::FieldResult<TeacherMetadata> {
         let mut db_context_mut = ctx.get_db_mut().await;
 
         get_teacher
-            ::get_teacher(&mut db_context_mut.client, name, id)
+            ::get_teacher(&mut db_context_mut.client, first_name, last_name, id)
             .await
             .map_err(IntoFieldError::into_field_error)
     }

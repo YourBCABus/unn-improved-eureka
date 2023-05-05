@@ -6,6 +6,7 @@ mod absence_state;
 mod period;
 mod time_range;
 mod pronoun_set;
+mod name_parts;
 
 pub use {
     teacher::TeacherMetadata,

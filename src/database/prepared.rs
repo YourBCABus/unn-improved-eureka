@@ -9,15 +9,16 @@ pub mod modifying {
     // Teacher-specific modifying sql queries:
     define_shared_query_name!(pub add_teacher_query: "
         INSERT INTO teachers
-            (teacherName, isAbsent, fullyAbsent, honorific, pronouns)
-            VALUES($1, false, false, $2, $3);
+            (firstname, lastname, isAbsent, fullyAbsent, honorific, pronouns)
+            VALUES($1, $2, false, false, $3, $4);
     ");
     define_shared_query_name!(pub update_teacher_metadata_query: "
         UPDATE teachers
         SET
-            teacherName = $2,
-            honorific = $3,
-            pronouns = $4
+            firstname = $2,
+            lastname = $3,
+            honorific = $4,
+            pronouns = $5
         WHERE teacherId = $1;
     ");
     define_shared_query_name!(pub update_teacher_absence_metadata_query: "
@@ -72,9 +73,9 @@ pub mod read {
     use crate::preludes::macros::define_shared_query_name;
 
     define_shared_query_name!(pub all_teachers_query: "SELECT * FROM Teachers");
-    define_shared_query_name!(pub get_teacher_by_name_query: "SELECT * FROM Teachers WHERE TeacherName = $1");
+    define_shared_query_name!(pub get_teacher_by_name_query: "SELECT * FROM Teachers WHERE firstname = $1 AND lastname = $2");
     define_shared_query_name!(pub get_teacher_by_id_query: "SELECT * FROM Teachers WHERE TeacherId = $1");
-    define_shared_query_name!(pub teacher_id_by_name_query: "SELECT TeacherId FROM Teachers WHERE TeacherName = $1");
+    define_shared_query_name!(pub teacher_id_by_name_query: "SELECT TeacherId FROM Teachers WHERE WHERE firstname = $1 AND lastname = $2");
     
     
     define_shared_query_name!(pub all_periods_query: "SELECT * FROM Periods");
