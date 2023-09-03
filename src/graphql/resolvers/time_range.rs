@@ -5,7 +5,7 @@ use async_graphql::Object;
 
 use chrono::{NaiveTime, Timelike};
 
-use crate::graphql::prelude::TimeRangeInput;
+use crate::graphql::structs::TimeRangeInput;
 
 
 

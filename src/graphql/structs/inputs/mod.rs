@@ -5,6 +5,7 @@ pub mod pronoun_set;
 pub use {
     teacher_name::{ GraphQlHonorific, GraphQlMiddleName, GraphQlTeacherName },
     teacher::GraphQlTeacher,
+    pronoun_set::GraphQlPronounSet,
 };
 
 use std::fmt::Debug;

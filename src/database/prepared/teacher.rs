@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use sqlx::{ query, query_as, Connection, Executor };
+use sqlx::{ query, query_as, Connection };
 use uuid::Uuid;
 
 use super::super::Ctx;
@@ -211,9 +211,6 @@ pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error
 struct Id { id: Uuid }
 
 pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sqlx::Error> {
-    use sqlx::PgExecutor;
-    use sqlx::Executor;
-
     let PronounSet {
         sub, object: obj,
         pos_adj, pos_pro,

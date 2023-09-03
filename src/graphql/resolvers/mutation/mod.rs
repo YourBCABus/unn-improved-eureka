@@ -31,8 +31,15 @@ use async_graphql::{
     Error as GraphQlError,
 };
 
-use crate::{types::{TeacherName, PronounSet, Teacher}, state::AppState, graphql::prelude::{GraphQlTeacherName, pronoun_set::GraphQlPronounSet}};
+use crate::{
+    types::{TeacherName, PronounSet, Teacher},
+    state::AppState,
+};
 
+use crate::graphql::structs::{
+    GraphQlTeacherName,
+    GraphQlPronounSet,
+};
 
 /// This is a memberless struct implementing all the mutations for `improved-eureka`.
 /// This includes:
