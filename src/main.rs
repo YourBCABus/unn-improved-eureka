@@ -1,26 +1,13 @@
-use std::sync::Arc;
-use actix_web::{HttpServer, web};
-use juniper::http::GraphQLRequest;
-use warp::Filter;
+use actix_web::{HttpServer, web, HttpResponse, http::header::ContentType, Responder, App};
+use arcs_logging_rs::set_up_logging;
 
 
 
-use improved_eureka::{preludes::{
-    graphql::{
-        easy_schema,
-        exec_graphql,
-        graphiql_source,
-    },
-    utils::structs::*,
-    verification::auth_all_method_gen,
-}, state::{AppState, WebContext}, graphql};
+use improved_eureka::{state::AppState, graphql::Schema};
+use improved_eureka::graphql::schema;
 
 use improved_eureka::database::connect_as;
 use improved_eureka::logging::*;
-
-
-use warp::hyper::body::Bytes;
-use warp::reject;
 
 
 
@@ -30,11 +17,10 @@ async fn main() -> std::io::Result<()> {
     set_up_logging(&arcs_logging_rs::DEFAULT_LOGGGING_TARGETS, "TableJet Improved Eureka").unwrap();
 
     {
-        use arcs_env_rs::checks::*;
-        verify_env!(main: "main");
-        verify_env!(sql: "sql");
-        verify_env!(discord: "discord");
-        verify_env!(auth: "auth");
+        use improved_eureka::env::checks::*;
+        main().unwrap();
+        sql().unwrap();
+        sheets().unwrap();
     }
 
 
@@ -48,77 +34,50 @@ async fn main() -> std::io::Result<()> {
             panic!("Failed to connect to eureka db: {e}");
         }
     };
-    let schema = easy_schema(true, Some(std::path::Path::new("./schema.graphql"))).unwrap();
+    info!("Connected to db");
+    let ctx: AppState = AppState::new(db);
 
-    let ctx: AppState = Arc::new(
-        WebContext {
-            db,
-            schema,
-        },
-    );
+    let schema = schema(ctx); // (true, Some(std::path::Path::new("./schema.graphql"))).unwrap();
+    info!("Created schema");
+
 
     let ip = "0.0.0.0";
-    let Ok(port) = env::port().parse() else {
+
+    let port = improved_eureka::env::port();
+
+    let Ok(port) = port.parse() else {
         error!("Failed to parse port as u16");
-        debug!("Port: {:#?}", env::port());
+        debug!("Port: {:#?}", port);
         panic!("Failed to parse port as u16");
     };
 
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         App::new()
-            .app_data(actix_web::web::Data::new(ctx))
-            .service(main_route)
+            .app_data(actix_web::web::Data::new(schema.clone()))
+            // .service(
+            //     web::resource("/")
+            //         .guard(guard::Post())
+            //         .to(GraphQL::new(schema)),
+            // )
+            // .handler()
+            // .service(web::resource("/").guard(guard::Get()).to(index_graphiql))
+            .service(graphql_handler)
+            .service(interactive)
     })
         .bind((ip, port))?
         .run()
         .await
-    
-    // let authenticate = auth_all_method_gen();
-
-    // let graphql_route = warp::post()
-    //     .and(warp::path!("graphql"))
-    //     .and(schema)
-    //     .and(ctx)
-    //     .and(authenticate)
-    //     .map(|sch, ctx, (auth, body): (_, Bytes)| Ok((
-    //         sch,
-    //         ctx,
-    //         auth,
-    //         serde_json::from_slice(&body[..])?
-    //     )))
-    //     .and_then(|result_in: Result<_, BoxError>| async {
-    //         result_in.map_err(
-    //             |error| reject::custom(BodyDeserializeError::from_cause(error))
-    //         )
-    //     })
-    //     .map(|tup: (_, _, _, _)| {
-    //         println!("{:?}", tup.2);
-    //         tup
-    //     })
-    //     .untuple_one()
-    //     .and_then(exec_graphql);
-
-    // let graphiql_route = warp::get()
-    //     .and(warp::path!("graphiql"))
-    //     .map(|| warp::reply::html(graphiql_source("graphql", None)));
-
-    // warp::serve(graphql_route.or(graphiql_route)).run(([127, 0, 0, 1], port)).await;
 }
 
-#[actix_web::post("/graphql", name = "graphql_handler")]
-async fn main_route(body: Bytes, authorization: Header<AuthHeader>, ctx: web::Data<AppState>) -> impl Responder {
-    let req_data: GraphQLRequest = match serde_json::from_slice(&body) {
-        Ok(json) => json,
-        Err(e) => {
-            error!("Failed to deserialize body: {e:#?}");
-            return HttpResponse::BadRequest()
-                .json(json!({ "error": "Failed to deserialize body" }))
-        }
-    };
+use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 
-    graphql::exec_graphql(&ctx.schema, &ctx.db, req_data);
+#[actix_web::post("/", name = "graphql_handler")]
+async fn graphql_handler(
+    request: GraphQLRequest,
+    schema: web::Data<Schema>,
+) -> GraphQLResponse {
 
-
+    schema.execute(request.into_inner()).await.into()
     // json
     //     .into_inner()
     //     .handle()
@@ -132,5 +91,14 @@ async fn main_route(body: Bytes, authorization: Header<AuthHeader>, ctx: web::Da
     //     HttpResponse::Unauthorized()
     //         .json(json!({ "error": "Improper bearer authentication" }))
     // }
+    // HttpResponse::Ok().body(output)
+}
+
+#[actix_web::get("/")]
+async fn interactive() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(async_graphql::http::graphiql_source("/", None))
+    
 }
 

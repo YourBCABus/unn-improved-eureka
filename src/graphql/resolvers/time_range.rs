@@ -1,11 +1,11 @@
 
 use std::fmt::Display;
 
-use juniper::graphql_object;
+use async_graphql::Object;
 
 use chrono::{NaiveTime, Timelike};
 
-use crate::{graphql::prelude::TimeRangeInput, state::AppState};
+use crate::graphql::prelude::TimeRangeInput;
 
 
 
@@ -19,9 +19,6 @@ impl TimeRange {
     pub fn new(start: NaiveTime, end: NaiveTime) -> Self {
         Self { start, end }
     }
-
-    pub fn start(&self) -> NaiveTime { self.start }
-    pub fn end(&self) -> NaiveTime { self.end }
 }
 
 impl TryFrom<TimeRangeInput> for TimeRange {
@@ -52,15 +49,12 @@ impl Display for TimeRange {
 
 
 
-#[graphql_object(
-    context = AppState,
-    name = "TimeRange",
-)]
+#[Object]
 impl TimeRange {
-    fn start(&self) -> f64 {
+    async fn start(&self) -> f64 {
         self.start.num_seconds_from_midnight() as f64
     }
-    fn end(&self) -> f64 {
+    async fn end(&self) -> f64 {
         self.end.num_seconds_from_midnight() as f64
     }
 }

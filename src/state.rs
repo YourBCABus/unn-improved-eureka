@@ -1,11 +1,19 @@
 use sqlx::PgPool;
 
-#[derive(Debug)]
 pub struct WebContext {
     pub db: PgPool,
-    pub schema: crate::graphql::Schema,
 }
 
+#[derive(Clone)]
+pub struct AppState(std::sync::Arc<WebContext>);
+impl AppState {
+    pub fn new(db: PgPool) -> Self {
+        Self(std::sync::Arc::new(WebContext { db }))
+    }
 
-pub type AppState = std::sync::Arc<WebContext>;
+    pub fn db(&self) -> &PgPool {
+        &self.0.db
+    }
+}
+
 

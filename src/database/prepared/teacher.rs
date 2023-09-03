@@ -23,7 +23,7 @@ impl From<SqlTeacherName> for Option<TeacherName> {
         let middle = middle_display.into_iter().zip(middle_texts.into_iter()).collect();
         let honorific = Honorific::try_from_str(&honorific);
 
-        honorific.map(|honorific| TeacherName { honorific, first, last, middle })
+        honorific.map(|honorific| TeacherName::new(honorific, first, last, middle) )
     }
 }
 
@@ -39,8 +39,8 @@ pub struct SqlPronouns {
 }
 impl From<SqlPronouns> for PronounSet {
     fn from(value: SqlPronouns) -> Self {
-        let SqlPronouns { id, sub, obj, pos_adj, pos_pro, refx, gramm_plu } = value;
-        PronounSet { id, sub, obj, pos_adj, pos_pro, refx, gramm_plu }
+        let SqlPronouns { id: _, sub, obj, pos_adj, pos_pro, refx, gramm_plu } = value;
+        PronounSet { sub, object: obj, pos_adj, pos_pro, refx, gramm_plu }
     }
 }
 
@@ -85,7 +85,13 @@ pub async fn get_teacher(ctx: &mut Ctx, id: Uuid) -> Result<Teacher, sqlx::Error
         return Err(sqlx::Error::ColumnNotFound(id.to_string()));
     };
 
-    Ok(Teacher { id, name, pronouns })
+    Ok(Teacher::new(id, name, pronouns))
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct SqlTeacherJoiner {
+    id: Uuid,
+    pronouns: Uuid,
 }
 
 pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error> {
@@ -111,26 +117,43 @@ pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error
             FROM pronoun_sets;
         "#,
     );
+    let teacher_joiner_query = query_as!(
+        SqlTeacherJoiner,
+        r#"
+            SELECT id, pronouns FROM teachers;
+        "#,
+    );
 
 
     let mut transaction = ctx.begin().await?;
+
     let names = teacher_name_query.fetch_all(&mut *transaction).await?;
     let pronoun_sets = teacher_pronouns_query.fetch_all(&mut *transaction).await?;
+    let joiners = teacher_joiner_query.fetch_all(&mut *transaction).await?;
 
     transaction.commit().await?;
+
+
+
+    let mut names_map: HashMap<_, _> = names
+        .into_iter()
+        .map(|name| (name.name_of, name))
+        .collect();
 
     let mut pronouns_map: HashMap<_, _> = pronoun_sets
         .into_iter()
         .map(|pronoun_set| (pronoun_set.id, pronoun_set))
         .collect();
 
-    let teachers: Vec<_> = names
+
+
+    let teachers: Vec<_> = joiners
         .into_iter()
-        .filter_map(|name| Some(Teacher {
-            id: name.name_of,
-            pronouns: pronouns_map.remove(&name.name_of)?.into(),
-            name: Option::from(name)?,
-        }))
+        .filter_map(|SqlTeacherJoiner { id, pronouns }| {
+            let name = names_map.remove(&id);
+            let pronouns = pronouns_map.remove(&pronouns);
+            Some(Teacher::new(id, Option::from(name?)?, pronouns?.into()))
+        })
         .collect();
 
     Ok(teachers)
@@ -192,13 +215,12 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
     use sqlx::Executor;
 
     let PronounSet {
-        id,
-        sub, obj,
+        sub, object: obj,
         pos_adj, pos_pro,
         refx, gramm_plu,
-    } = input.pronouns();
+    } = input.get_pronouns();
 
-    let id = *id;
+    let id = input.get_id();
 
     let add_pronoun_set = query_as!(
         Id,
@@ -209,25 +231,24 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
                 pos_adj, pos_pro,
                 refx, gramm_plu
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6)
                 ON CONFLICT
                     ON CONSTRAINT nopronounsetduplicates
                     DO UPDATE SET id = pronoun_sets.id
                 RETURNING id AS "id: _";
         "#,
-        id,
         sub, obj,
         pos_adj, pos_pro,
         refx, gramm_plu,
     );
     
 
-    let first = input.name().first();
-    let last = input.name().first();
-    let honorific = input.name().honorific().str();
+    let first = input.get_name().get_first();
+    let last = input.get_name().get_last();
+    let honorific = input.get_name().get_honorific().str();
 
-    let middle_texts: Vec<_> = input.name().all_middles().map(|(_, name)| name.to_string()).collect();
-    let middle_display: Vec<_> = input.name().all_middles().map(|(display, _)| display).collect();
+    let middle_texts: Vec<_> = input.get_name().all_middles().map(|(_, name)| name.to_string()).collect();
+    let middle_display: Vec<_> = input.get_name().all_middles().map(|(display, _)| display).collect();
 
     let add_name = query!(
         r#"
@@ -238,7 +259,7 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
                 honorific
             ) VALUES ($1, $2, $3, $4, $5, $6);
         "#,
-        input.id(),
+        input.get_id(),
         first, last,
         middle_texts.as_slice(), &middle_display,
         honorific,
@@ -261,3 +282,4 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
 
     get_teacher(ctx, id).await
 }
+

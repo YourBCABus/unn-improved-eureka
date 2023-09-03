@@ -11,46 +11,63 @@ pub mod prelude;
 pub mod resolvers;
 
 
-use prelude::*;
 use crate::state::AppState;
 
-use actix_web::{Responder, HttpResponse};
+use self::{
+    resolvers::query::QueryRoot,
+    resolvers::mutation::MutationRoot,
+};
+
+use async_graphql::{
+    Schema as GenericSchema,
+    EmptySubscription,
+};
+
+
 
 
 
 /// A Schema alias type used by the GraphQLRequest handler to run a GraphQL query.
-pub type Schema = GraphQLRoot<'static, QueryRoot, MutationRoot, NoSubscription<AppState>>;
+pub type Schema = GenericSchema<QueryRoot, MutationRoot, EmptySubscription>;
 
 
-impl juniper::Context for AppState {}
-
-
-/// What is essentially the linkage between [actix_web]'s requests and [juniper]'s query execution.
-/// - `state` - `improved-eureka` [AppState] shared between requests.
-/// - `req` - the opaque juniper type for a graphql request, deserialized from JSON
-/// 
-/// This function is only really supposed to be called at the end of a filter chain with and_then.
-/// It should never fail, and especially never panic.
-/// 
-pub async fn exec_graphql(
-    state: AppState,
-    req: GraphQLRequest,
-) -> impl Responder {
-    let res = req
-        .execute(
-            &state.schema,
-            &state,
-        ).await;
+// /// What is essentially the linkage between [actix_web]'s requests and [juniper]'s query execution.
+// /// - `state` - `improved-eureka` [AppState] shared between requests.
+// /// - `req` - the opaque juniper type for a graphql request, deserialized from JSON
+// /// 
+// /// This function is only really supposed to be called at the end of a filter chain with and_then.
+// /// It should never fail, and especially never panic.
+// /// 
+// pub async fn exec_graphql(
+//     state: AppState,
+//     req: GraphQLRequest,
+// ) -> impl Responder {
+//     let res = req
+//         .execute(
+//             &state.schema,
+//             &state,
+//         ).await;
 
     
-    match serde_json::to_string(&res) {
-        Ok(json) => if res.is_ok() {
-            Ok(HttpResponse::Ok().body(json))
-        } else {
-            Ok(HttpResponse::BadRequest().body(json))
-        },
-        Err(err) => {
-            Ok(HttpResponse::InternalServerError().body(err.to_string()))
-        },
-    }
+//     match serde_json::to_string(&res) {
+//         Ok(json) => if res.is_ok() {
+//             Ok(HttpResponse::Ok().body(json))
+//         } else {
+//             Ok(HttpResponse::BadRequest().body(json))
+//         },
+//         Err(err) => {
+//             Ok(HttpResponse::InternalServerError().body(err.to_string()))
+//         },
+//     }
+// }
+
+
+pub fn schema(app_state: AppState) -> Schema {
+    GenericSchema::build(
+        QueryRoot,
+        MutationRoot,
+        EmptySubscription,
+    )
+        .data(app_state)
+        .finish()
 }

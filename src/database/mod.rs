@@ -39,12 +39,12 @@ pub async fn connect_as(connection_name: &str) -> Result<PgPool, sqlx::Error> {
     };
 
     let connection_options = PgConnectOptions::new()
-        .application_name("ARCS-webhook")
-        .host(crate::env::sql::db_url())
+        .application_name(connection_name)
+        // .host(crate::env::sql::db_url())
         .database(crate::env::sql::db_name())
-        .username(crate::env::sql::db_url());
+        .username(crate::env::sql::username());
 
-    let connection_options: PgConnectOptions = if let Ok(password) = std::env::var("SQL_DB_PASS") {
+    let connection_options = if let Ok(password) = std::env::var("SQL_DB_PASS") {
         connection_options.password(&password)
     } else {
         connection_options

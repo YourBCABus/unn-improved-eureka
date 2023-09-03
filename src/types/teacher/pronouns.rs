@@ -1,12 +1,11 @@
+use async_graphql::InputObject;
 use uuid::Uuid;
 use serde::{ Serialize, Deserialize };
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
 pub struct PronounSet {
-    pub id: Uuid,
-
     pub sub: String,
-    pub obj: String,
+    pub object: String,
     pub pos_adj: String,
     pub pos_pro: String,
     pub refx: String,
@@ -21,8 +20,7 @@ impl PronounSet {
         refx: String, gramm_plu: bool,
     ) -> PronounSet {
         Self {
-            id: Uuid::new_v4(),
-            sub, obj,
+            sub, object: obj,
             pos_adj, pos_pro,
             refx, gramm_plu,
         }
@@ -36,7 +34,7 @@ impl std::fmt::Debug for PronounSet {
             f,
             r#"PronounSetInput<{}/{}/{}/{}/{}; "{} {}...">"#,
             self.sub,
-            self.obj,
+            self.object,
             self.pos_adj,
             self.pos_pro,
             self.refx,

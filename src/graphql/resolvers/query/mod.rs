@@ -3,16 +3,21 @@
 
 // mod get_teacher;
 // mod all_teachers;
-mod all_periods;
+// mod all_periods;
 
 
 use crate::state::AppState;
 use crate::types::Teacher;
 
-use super::super::structs::*;
+use async_graphql::{
+    Object,
 
-use super::period::PeriodMetadata;
-use juniper::{IntoFieldError, graphql_value, FieldError};
+    Context,
+    Result as GraphQlResult,
+    Error as GraphQlError,
+};
+
+use uuid::Uuid; 
 
 /// This is a memberless struct implementing all the queries for `improved-eureka`.
 /// This includes:
@@ -23,69 +28,77 @@ use juniper::{IntoFieldError, graphql_value, FieldError};
 /// - `get_period(name?, id?) -> Period`
 /// 
 /// Generally, it will only be used as part of a [schema][super::Schema].
+#[derive(Debug, Clone, Copy)]
 pub struct QueryRoot;
 
-#[juniper::graphql_object(context = AppState)]
+#[Object]
 impl QueryRoot {
     async fn get_teacher(
-        ctx: &AppState,
-        id: JuniperUuid,
-    ) -> juniper::FieldResult<Teacher> {
+        &self,
+        ctx_accessor: &Context<'_>,
+        #[graphql(desc = "Id of teacher")] id: Uuid,
+    ) -> GraphQlResult<Teacher> {
         use crate::database::prepared::teacher::get_teacher as get_teacher_from_db;
 
-        let Ok(id) = id.try_uuid() else {
-            return Err(IntoFieldError::into_field_error(
-                graphql_value!({ "bad_uuid": id }),
-            ));
-        };
+        let ctx = ctx_accessor.data::<AppState>()?;
 
-        let mut db_conn = ctx.db
+        let mut db_conn = ctx.db()
             .acquire()
             .await
-            .map_err(|e| FieldError::new(
-                "Could not open connection to the database",
-                graphql_value!({ "internal_error": e }),
-            ))?;
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
 
         get_teacher_from_db(&mut db_conn, id)
             .await
-            .map_err(|e| FieldError::new(
-                "Failed to get teacher from database",
-                graphql_value!({ "internal_error": e }),
-            ))
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Failed to get teachers from database {e}"))
+            })
     }
 
-    async fn all_teachers(
-        ctx: &AppState,
-    ) -> juniper::FieldResult<Vec<Teacher>> {
-        use crate::database::prepared::teacher::get_all_teachers as get_all_teachers_from_db;
+    async fn all_teachers<'ctx>(
+        &self,
+        ctx: &Context<'ctx>,
+    ) -> GraphQlResult<Vec<Teacher>> {
+        use crate::database::prepared::teacher::get_all_teachers as get_all_teachers_from_db;        
+        
+        let ctx_accessor = ctx;
+        let ctx = ctx_accessor.data::<AppState>()?;
 
-        let mut db_conn = ctx.db
+        let mut db_conn = ctx.db()
             .acquire()
             .await
-            .map_err(|e| FieldError::new(
-                "Could not open connection to the database",
-                graphql_value!({ "internal_error": e }),
-            ))?;
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+            
 
         get_all_teachers_from_db(&mut db_conn)
             .await
-            .map_err(|e| FieldError::new(
-                "Failed to get teachers from database",
-                graphql_value!({ "internal_error": e }),
-            ))
+            .map_err(|e| {
+                if matches!(e, sqlx::Error::RowNotFound) {
+                    GraphQlError::new_with_source("Teacher not found")
+                } else {
+                    let e = e.to_string();
+                    GraphQlError::new(format!("Failed to get teacher from database {e}"))
+                }
+            })
     }
 
-    async fn all_periods(
-        ctx: &AppState,
-    ) -> juniper::FieldResult<Vec<PeriodMetadata>> {
-        let mut db_context_mut = ctx.get_db_mut().await;
+    // async fn all_periods(
+    //     ctx: &AppState,
+    // ) -> juniper::FieldResult<Vec<PeriodMetadata>> {
+    //     let mut db_context_mut = ctx.get_db_mut().await;
 
-        all_periods
-            ::all_periods(&mut db_context_mut.client)
-            .await
-            .map_err(IntoFieldError::into_field_error)
-    }
+    //     all_periods
+    //         ::all_periods(&mut db_context_mut.client)
+    //         .await
+    //         .map_err(IntoFieldError::into_field_error)
+    // }
 }
 
 

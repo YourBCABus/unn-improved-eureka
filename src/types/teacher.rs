@@ -2,7 +2,6 @@ pub mod pronouns;
 
 use std::fmt::{Debug, Display};
 
-use juniper::ScalarValue;
 use uuid::Uuid;
 use serde::{ Serialize, Deserialize };
 
@@ -59,7 +58,9 @@ impl Display for Honorific {
 }
 
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow, juniper::GraphQLInputObject)]
+
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
 pub struct TeacherName {
     pub (super) honorific: Honorific,
     pub (super) first: String,
@@ -67,9 +68,14 @@ pub struct TeacherName {
     pub (super) middle: Vec<(bool, String)>,
 }
 impl TeacherName {
-    pub fn honorific(&self) -> Honorific { self.honorific }
-    pub fn first(&self) -> &str { &self.first }
-    pub fn last(&self) -> &str { &self.last }
+    pub fn new(honorific: Honorific, first: String, last: String, middle: Vec<(bool, String)>) -> Self {
+        Self { honorific, first, last, middle }
+    }
+
+    
+    pub fn get_honorific(&self) -> Honorific { self.honorific }
+    pub fn get_first(&self) -> &str { &self.first }
+    pub fn get_last(&self) -> &str { &self.last }
 
     pub fn all_middles(&self) -> impl Iterator<Item = (bool, &str)> {
         self.middle.iter().map(|(display, text)| (*display, text.as_str()))
@@ -133,7 +139,7 @@ impl Teacher {
     pub fn new(id: Uuid, name: TeacherName, pronouns: PronounSet) -> Self {
         Self { id, name, pronouns }
     }
-    pub fn id(&self) -> Uuid { self.id }
-    pub fn name(&self) -> &TeacherName { &self.name }
-    pub fn pronouns(&self) -> &PronounSet { &self.pronouns }
+    pub fn get_id(&self) -> Uuid { self.id }
+    pub fn get_name(&self) -> &TeacherName { &self.name }
+    pub fn get_pronouns(&self) -> &PronounSet { &self.pronouns }
 }

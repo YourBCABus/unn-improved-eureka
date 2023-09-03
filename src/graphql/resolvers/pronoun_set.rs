@@ -1,35 +1,31 @@
 #![allow(unused_braces)]
 
+
+use async_graphql::Object;
 use crate::types::PronounSet;
-use crate::state::AppState;
-
-use juniper::graphql_object;
 
 
-#[graphql_object(
-    context = AppState,
-    name = "PronounSet",
-)]
+#[Object]
 impl PronounSet {
-    fn sub(&self) -> &str { &self.sub }
-    fn subject(&self) -> &str { &self.sub }
+    async fn sub(&self) -> &str { &self.sub }
+    async fn subject(&self) -> &str { &self.sub }
     
-    fn obj(&self) -> &str { &self.obj }
-    fn object(&self) -> &str { &self.obj }
+    async fn obj(&self) -> &str { &self.object }
+    async fn object(&self) -> &str { &self.object }
     
-    fn pos_adj(&self) -> &str { &self.pos_adj }
-    fn poss_adjective(&self) -> &str { &self.pos_adj }
+    async fn pos_adj(&self) -> &str { &self.pos_adj }
+    async fn poss_adjective(&self) -> &str { &self.pos_adj }
     
-    fn pos_pro(&self) -> &str { &self.pos_pro }
-    fn poss_pronoun(&self) -> &str { &self.pos_pro }
+    async fn pos_pro(&self) -> &str { &self.pos_pro }
+    async fn poss_pronoun(&self) -> &str { &self.pos_pro }
 
-    fn refx(&self) -> &str { &self.refx }
-    fn reflexive(&self) -> &str { &self.refx }
+    async fn refx(&self) -> &str { &self.refx }
+    async fn reflexive(&self) -> &str { &self.refx }
 
-    fn gramm_plu(&self) -> bool { self.gramm_plu }
-    fn grammatically_plural(&self) -> bool { self.gramm_plu }
+    async fn gramm_plu(&self) -> bool { self.gramm_plu }
+    async fn grammatically_plural(&self) -> bool { self.gramm_plu }
 
-    fn set_str(&self) -> String {
-        format!("{};{};{};{};{};{}", self.sub, self.obj, self.pos_adj, self.pos_pro, self.refx, self.gramm_plu)
+    async fn set_str(&self) -> String {
+        format!("{};{};{};{};{};{}", self.sub, self.object, self.pos_adj, self.pos_pro, self.refx, self.gramm_plu)
     }
 }
