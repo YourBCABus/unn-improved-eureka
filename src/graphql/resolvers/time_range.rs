@@ -3,8 +3,9 @@ use std::fmt::Display;
 
 use juniper::graphql_object;
 
-use crate::graphql_types::{Context, inputs::TimeRangeInput};
 use chrono::{NaiveTime, Timelike};
+
+use crate::{graphql::prelude::TimeRangeInput, state::AppState};
 
 
 
@@ -52,7 +53,7 @@ impl Display for TimeRange {
 
 
 #[graphql_object(
-    context = Context,
+    context = AppState,
     name = "TimeRange",
 )]
 impl TimeRange {

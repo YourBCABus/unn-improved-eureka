@@ -5,9 +5,7 @@ use crate::graphql_scalars::period::PeriodId;
 use crate::utils::list_to_value;
 use crate::database::prelude::*;
 
-use crate::{
-    preludes::graphql::*,
-};
+use crate::preludes::graphql::*;
 
 use crate::macros::{
     handle_prepared,
@@ -59,7 +57,7 @@ make_static_enum_error! {
 /// Returns nothing.
 /// TODO: Make this require auth.
 pub async fn delete_period(
-    db_client: &mut Client,
+    db_client: &Client,
     id: PeriodId,
 ) -> Result<(), DeletePeriodError> {
     let dpq = modifying::delete_period_query(db_client).await;

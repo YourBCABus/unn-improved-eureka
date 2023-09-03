@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 
-pub use tokio_postgres::Client;
+pub type Client = sqlx::pool::PoolConnection<sqlx::postgres::Postgres>;
 
 pub use juniper::{
     EmptySubscription as NoSubscription,
@@ -31,10 +31,6 @@ pub use {
         Schema,
         resolvers::mutation::MutationRoot,
         resolvers::query::QueryRoot,
-        Context,
-    },
-    super::{
-        exec_graphql,
     },
 
     super::structs::*,

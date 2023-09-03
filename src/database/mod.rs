@@ -11,22 +11,13 @@
 
 //! - [prepared::read] and [prepared::modifying], containing memoized functions for readonly and mutating SQL queries respectively.
 
-pub mod prelude;
-
 pub mod prepared;
-pub mod table_schemas;
+
+// pub mod prepared;
+// pub mod table_schemas;
 
 
-use tokio_postgres::{
-    Client as PostgresClient,
-    error::Error as SqlCommunicationError,
-    connect as db_connect,
-    NoTls as PostgresNoTls,
-};
-use tokio::{spawn as async_spawn, sync::Mutex};
-
-
-use std::sync::Arc;
+use sqlx::PgPool;
 
 /// Connect with is a convenience function that wraps the functionality of
 /// - connecting to the server
@@ -41,25 +32,44 @@ use std::sync::Arc;
 ///     Err(e) => todo!("failed to connect to db: {}", e),
 /// };
 /// ```
-pub async fn connect_with(host: &str, user: &str) -> Result<Arc<Mutex<DbContext>>, SqlCommunicationError> {
-    let (client, connection) = db_connect(
-        &format!("host={host} user={user}"),
-        PostgresNoTls,
-    ).await?;
+pub async fn connect_as(connection_name: &str) -> Result<PgPool, sqlx::Error> {
+    use sqlx::postgres::{
+        PgConnectOptions,
+        PgPoolOptions
+    };
 
-    async_spawn(async move {
-        if let Err(e) = connection.await {
-            eprintln!("connection error: {}", e);
-        }
-    });
+    let connection_options = PgConnectOptions::new()
+        .application_name("ARCS-webhook")
+        .host(crate::env::sql::db_url())
+        .database(crate::env::sql::db_name())
+        .username(crate::env::sql::db_url());
 
-    Ok(Arc::new(Mutex::new(DbContext{ client })))
+    let connection_options: PgConnectOptions = if let Ok(password) = std::env::var("SQL_DB_PASS") {
+        connection_options.password(&password)
+    } else {
+        connection_options
+    };
+
+
+    let options = PgPoolOptions::new()
+        .min_connections(4)
+        .max_connections(8);
+
+    let client = options
+        .connect_with(connection_options)
+        .await?;
+
+    Ok(client)
 }
 
-/// At the moment, this is just a wrapper struct around a [PostgresClient].
-/// It may add more properties or methods in the future, especially ones relating to usage of SQL.
-pub struct DbContext {
-    /// This is the thread-safe async PostgreSQL Client connection to use for all of the local persistent storage on `improved-eureka`.
-    /// More fields may be added in the future.
-    pub client: PostgresClient,
-}
+
+pub type Ctx = sqlx::pool::PoolConnection<sqlx::Postgres>;
+
+
+// /// At the moment, this is just a wrapper struct around a [PgPool].
+// /// It may add more properties or methods in the future, especially ones relating to usage of SQL.
+// pub struct DbContext {
+//     /// This is the thread-safe async PostgreSQL Client connection to use for all of the local persistent storage on `improved-eureka`.
+//     /// More fields may be added in the future.
+//     pub client: sqlx::postgres::PgPool,
+// }

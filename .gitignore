@@ -5,3 +5,4 @@ output.json
 test.js
 *.sql
 !sql_schemas/**/*.sql
+.env

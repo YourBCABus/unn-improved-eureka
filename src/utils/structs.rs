@@ -46,13 +46,7 @@ impl StdError for BodyDeserializeError {
 impl Reject for BodyDeserializeError {}
 
 use crate::graphql::resolvers::PronounSet;
-use crate::{
-    graphql_types::scalars::{
-        teacher::*,
-        period::*,
-    },
-    database::table_schemas::Teachers::TeacherPresence::TeacherPresence,
-};
+use crate::database::table_schemas::Teachers::TeacherPresence::TeacherPresence;
 use tokio_postgres::Row;
 use const_format::formatcp;
 
