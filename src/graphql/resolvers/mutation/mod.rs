@@ -30,9 +30,10 @@ use async_graphql::{
     Result as GraphQlResult,
     Error as GraphQlError,
 };
+use uuid::Uuid;
 
 use crate::{
-    types::{TeacherName, PronounSet, Teacher},
+    types::Teacher,
     state::AppState,
 };
 
@@ -52,13 +53,13 @@ pub struct MutationRoot;
 
 #[Object]
 impl MutationRoot {
-    async fn create_teacher(
+    async fn add_teacher(
         &self,
         ctx_accessor: &Context<'_>,
         name: GraphQlTeacherName,
         pronouns: GraphQlPronounSet,
     ) -> GraphQlResult<Teacher> {
-        use crate::database::prepared::teacher::create_teacher as create_teacher_in_db;
+        use crate::database::prepared::teacher::create_teacher as add_teacher_to_db;
 
         let ctx = ctx_accessor.data::<AppState>()?;
 
@@ -76,37 +77,39 @@ impl MutationRoot {
             pronouns.into(),
         );
 
-        create_teacher_in_db(&mut db_conn, teacher)
+        add_teacher_to_db(&mut db_conn, teacher)
             .await
             .map_err(|e| {
                 let e = e.to_string();
-                GraphQlError::new(format!("Failed to get teachers from database {e}"))
+                GraphQlError::new(format!("Database error: {e}"))
             })
-    
     }
     
-    // async fn update_teacher(
-    //     ctx: &Context,
-    //     id: TeacherId,
-    //     first_name: Option<String>,
-    //     last_name: Option<String>,
-    //     honorific: Option<String>,
-    //     pronouns: Option<PronounSetInput>,
-    // ) -> juniper::FieldResult<TeacherMetadata> {
-    //     let mut db_context_mut = ctx.get_db_mut().await;
+    async fn update_teacher_name(
+        &self,
+        ctx_accessor: &Context<'_>,
+        id: Uuid,
+        name: GraphQlTeacherName,
+    ) -> GraphQlResult<Teacher> {
+        use crate::database::prepared::teacher::update_teacher_name as update_teacher_name_in_db;
 
-    //     update_teacher
-    //         ::update_teacher(
-    //             &mut db_context_mut.client,
-    //             id,
-    //             first_name.as_deref(),
-    //             last_name.as_deref(),
-    //             honorific.as_deref(),
-    //             pronouns.as_ref(),
-    //         )
-    //         .await
-    //         .map_err(IntoFieldError::into_field_error)
-    // }
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        update_teacher_name_in_db(&mut db_conn, id, name.into())
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })
+    }
 
     // #[graphql(arguments(
     //     id(),

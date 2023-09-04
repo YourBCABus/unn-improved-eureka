@@ -280,3 +280,34 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
     get_teacher(ctx, id).await
 }
 
+pub async fn update_teacher_name(ctx: &mut Ctx, id: Uuid, name: TeacherName) -> sqlx::Result<Teacher> {
+    let first = name.get_first();
+    let last = name.get_last();
+    let honorific = name.get_honorific().str();
+
+    let middle_texts: Vec<_> = name.all_middles().map(|(_, name)| name.to_string()).collect();
+    let middle_display: Vec<_> = name.all_middles().map(|(display, _)| display).collect();
+
+    let add_name = query!(
+        r#"
+            UPDATE names
+            SET
+                first = $2,
+                last = $3,
+                middle_texts = $4,
+                middle_display = $5,
+                honorific = $6
+            WHERE
+                name_of = $1;
+        "#,
+        id,
+        first, last,
+        middle_texts.as_slice(), &middle_display,
+        honorific,
+    );
+
+    add_name.execute(&mut **ctx).await?;
+
+    get_teacher(ctx, id).await
+}
+
