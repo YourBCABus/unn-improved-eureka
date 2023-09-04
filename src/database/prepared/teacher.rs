@@ -311,3 +311,50 @@ pub async fn update_teacher_name(ctx: &mut Ctx, id: Uuid, name: TeacherName) -> 
     get_teacher(ctx, id).await
 }
 
+pub async fn update_teacher_pronouns(ctx: &mut Ctx, id: Uuid, pronouns: PronounSet) -> sqlx::Result<Teacher> {
+
+    let PronounSet {
+        sub, object: obj,
+        pos_adj, pos_pro,
+        refx, gramm_plu,
+    } = pronouns;
+
+    let add_pronoun_set = query_as!(
+        Id,
+        r#"
+            INSERT INTO pronoun_sets (
+                id,
+                sub, obj,
+                pos_adj, pos_pro,
+                refx, gramm_plu
+            )
+            VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6)
+                ON CONFLICT
+                    ON CONSTRAINT nopronounsetduplicates
+                    DO UPDATE SET id = pronoun_sets.id
+                RETURNING id AS "id: _";
+        "#,
+        sub, obj,
+        pos_adj, pos_pro,
+        refx, gramm_plu,
+    );
+
+    let update_teacher_id = query(
+        r#"
+            UPDATE teachers 
+            SET pronouns = $2
+            WHERE id = $1;
+        "#
+    );
+
+
+    ctx.transaction(|txn| Box::pin(async move {
+        let pronoun_set_id = add_pronoun_set.fetch_one(&mut **txn).await?.id;
+
+        update_teacher_id.bind(id).bind(pronoun_set_id).execute(&mut **txn).await
+
+    })).await?;
+
+    get_teacher(ctx, id).await
+}
+

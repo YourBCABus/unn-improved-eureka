@@ -111,6 +111,32 @@ impl MutationRoot {
             })
     }
 
+    async fn update_teacher_pronouns(
+        &self,
+        ctx_accessor: &Context<'_>,
+        id: Uuid,
+        pronouns: GraphQlPronounSet,
+    ) -> GraphQlResult<Teacher> {
+        use crate::database::prepared::teacher::update_teacher_pronouns as update_teacher_pronouns_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        update_teacher_pronouns_in_db(&mut db_conn, id, pronouns.into())
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })
+    }
+
     // #[graphql(arguments(
     //     id(),
     //     names(default = Vec::new()),
