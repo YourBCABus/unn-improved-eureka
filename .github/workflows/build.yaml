@@ -18,11 +18,18 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: nightly
-    - run: cargo build --release --all-features
+        target: x86_64-unknown-linux-gnu
+        override: true
     
+    - name: Compile project
+      uses: actions-rs/cargo@v1
+      with:
+        use-cross: true
+        command: build
+        args: --release --target=x86_64-unknown-linux-gnu
     
     - name: Check out repository
       uses: actions/upload-artifact@v3.1.2
       with:
         name: dev-deploy-executable
-        path: target/release/improved-eureka
+        path: target/x86_64-unknown-linux-gnu/release/improved-eureka

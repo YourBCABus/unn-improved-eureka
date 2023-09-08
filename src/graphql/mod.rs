@@ -6,72 +6,67 @@
 //! 
 
 pub mod structs;
-pub mod prelude;
-pub mod helpers;
 
-pub mod queries;
-pub mod mutations;
+pub mod resolvers;
 
-use tokio::sync::Mutex;
 
-use super::database::DbContext;
+use crate::state::AppState;
 
-use crate::preludes::{
-    graphql::*,
-    verification::AuthenticationMethods,
+use self::{
+    resolvers::query::QueryRoot,
+    resolvers::mutation::MutationRoot,
 };
 
-use std::{convert::Infallible, sync::Arc, ops::DerefMut};
+use async_graphql::{
+    Schema as GenericSchema,
+    EmptySubscription,
+};
+
+
+
 
 
 /// A Schema alias type used by the GraphQLRequest handler to run a GraphQL query.
-pub type Schema = GraphQLRoot<'static, QueryRoot, MutationRoot, NoSubscription<Context>>;
-
-/// A GraphQL context composed of
-/// - auth context
-/// - db context
-pub struct Context {
-    /// Database shared context. See [DbContext] for details.
-    pub db_context: Arc<Mutex<DbContext>>,
-    /// Per-request auth context. See [AuthenticationMethods] for details.
-    pub auth_context: AuthenticationMethods,
-}
-
-impl Context {
-    pub async fn get_db_mut(&self) -> impl DerefMut<Target = DbContext> + '_ {
-        self.db_context.lock().await
-    }
-}
-
-impl juniper::Context for Context {}
+pub type Schema = GenericSchema<QueryRoot, MutationRoot, EmptySubscription>;
 
 
-/// What is essentially the linkage between [warp]'s Filters and [juniper]'s query execution.
-/// - `schema` - Shared `improved-eureka` [Schema], optimally shared between requests by cloning the `Arc`.
-/// - `db_ctx` - Shared postgres database [Context], also optimally shared between requests.
-/// - `auth_ctx` - Authentication flags for each request. Generated at the beginning of every request.
-/// - `req` - the opaque juniper type for a graphql request, deserialized from JSON
-/// 
-/// This function is only really supposed to be called at the end of a filter chain with and_then.
-/// It should never fail, and especially never panic.
-/// 
-pub async fn exec_graphql(
-    schema: Arc<Schema>,
-    db_ctx: Arc<Mutex<DbContext>>,
-    auth_ctx: AuthenticationMethods,
-    req: GraphQLRequest,
-) -> Result<Box<dyn warp::Reply>, Infallible> {
-    let context = Context { db_context: db_ctx, auth_context: auth_ctx };
-    let res = req
-        .execute(
-            &schema,
-            &context,
-        ).await;
+// /// What is essentially the linkage between [actix_web]'s requests and [juniper]'s query execution.
+// /// - `state` - `improved-eureka` [AppState] shared between requests.
+// /// - `req` - the opaque juniper type for a graphql request, deserialized from JSON
+// /// 
+// /// This function is only really supposed to be called at the end of a filter chain with and_then.
+// /// It should never fail, and especially never panic.
+// /// 
+// pub async fn exec_graphql(
+//     state: AppState,
+//     req: GraphQLRequest,
+// ) -> impl Responder {
+//     let res = req
+//         .execute(
+//             &state.schema,
+//             &state,
+//         ).await;
+
     
-    match serde_json::to_string(&res) {
-        Ok(json) => Ok(Box::new(json)),
-        Err(err) => Ok(Box::new(
-            warp::reply::with_status(err.to_string(), warp::http::StatusCode::INTERNAL_SERVER_ERROR)
-        )),
-    }
+//     match serde_json::to_string(&res) {
+//         Ok(json) => if res.is_ok() {
+//             Ok(HttpResponse::Ok().body(json))
+//         } else {
+//             Ok(HttpResponse::BadRequest().body(json))
+//         },
+//         Err(err) => {
+//             Ok(HttpResponse::InternalServerError().body(err.to_string()))
+//         },
+//     }
+// }
+
+
+pub fn schema(app_state: AppState) -> Schema {
+    GenericSchema::build(
+        QueryRoot,
+        MutationRoot,
+        EmptySubscription,
+    )
+        .data(app_state)
+        .finish()
 }
