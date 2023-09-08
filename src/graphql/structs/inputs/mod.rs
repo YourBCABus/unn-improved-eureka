@@ -12,8 +12,6 @@ use std::fmt::Debug;
 
 use async_graphql::InputObject;
 
-
-
 #[derive(Debug, Clone, Copy, InputObject)]
 pub struct TimeRangeInput {
     pub start: f64,

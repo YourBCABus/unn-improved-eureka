@@ -11,8 +11,8 @@ use crate::graphql::structs::TimeRangeInput;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TimeRange {
-    start: NaiveTime,
-    end: NaiveTime,
+    pub start: NaiveTime,
+    pub end: NaiveTime,
 }
 
 impl TimeRange {
@@ -47,15 +47,31 @@ impl Display for TimeRange {
     }
 }
 
+impl From<(f64, f64)> for TimeRange {
+    fn from(value: (f64, f64)) -> Self {
+        let ns_per_s = 1_000_000_000.0;
+        let start = NaiveTime::from_num_seconds_from_midnight_opt(
+            value.0 as u32,
+            ((value.0 % 1.0) * ns_per_s) as u32,
+        ).unwrap_or_default();
+        let end = NaiveTime::from_num_seconds_from_midnight_opt(
+            value.1 as u32,
+            ((value.1 % 1.0) * ns_per_s) as u32,
+        ).unwrap_or_default();
+
+        Self { start, end }
+    }
+}
+
 
 
 #[Object]
 impl TimeRange {
     async fn start(&self) -> f64 {
-        self.start.num_seconds_from_midnight() as f64
+        self.start.num_seconds_from_midnight() as f64 + self.start.nanosecond() as f64 / 1_000_000_000.0
     }
     async fn end(&self) -> f64 {
-        self.end.num_seconds_from_midnight() as f64
+        self.end.num_seconds_from_midnight() as f64 + self.end.nanosecond() as f64 / 1_000_000_000.0
     }
 }
 

@@ -6,7 +6,7 @@
 // mod all_periods;
 
 
-use crate::state::AppState;
+use crate::{state::AppState, types::Period};
 use crate::types::Teacher;
 
 use async_graphql::{
@@ -58,9 +58,9 @@ impl QueryRoot {
             })
     }
 
-    async fn all_teachers<'ctx>(
+    async fn all_teachers(
         &self,
-        ctx: &Context<'ctx>,
+        ctx: &Context<'_>,
     ) -> GraphQlResult<Vec<Teacher>> {
         use crate::database::prepared::teacher::get_all_teachers as get_all_teachers_from_db;        
         
@@ -89,16 +89,36 @@ impl QueryRoot {
             })
     }
 
-    // async fn all_periods(
-    //     ctx: &AppState,
-    // ) -> juniper::FieldResult<Vec<PeriodMetadata>> {
-    //     let mut db_context_mut = ctx.get_db_mut().await;
+    async fn all_periods(
+        &self,
+        ctx: &Context<'_>,
+    ) -> GraphQlResult<Vec<Period>> {
+        use crate::database::prepared::period::get_all_periods as get_all_periods_from_db;        
+        
+        let ctx_accessor = ctx;
+        let ctx = ctx_accessor.data::<AppState>()?;
 
-    //     all_periods
-    //         ::all_periods(&mut db_context_mut.client)
-    //         .await
-    //         .map_err(IntoFieldError::into_field_error)
-    // }
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+            
+
+        get_all_periods_from_db(&mut db_conn)
+            .await
+            .map_err(|e| {
+                if matches!(e, sqlx::Error::RowNotFound) {
+                    GraphQlError::new_with_source("Period not found")
+                } else {
+                    let e = e.to_string();
+                    GraphQlError::new(format!("Failed to get period from database {e}"))
+                }
+            })
+    }
 }
 
 

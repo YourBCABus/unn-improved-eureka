@@ -3,15 +3,19 @@ use std::fmt::{Debug, Display};
 use uuid::Uuid;
 use serde::{ Serialize, Deserialize };
 
+
 #[derive(Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Period {
-    pub (super) id: Uuid,
+    pub id: Uuid,
 
-    pub (super) name: String,
-    pub (super) short_name: Option<String>,
+    pub name: String,
+    pub  short_name: Option<String>,
 
-    pub (super) start: chrono::NaiveTime,
-    pub (super) end: chrono::NaiveTime,
+    pub start: f64,
+    pub end: f64,
+    
+    pub temp_start: Option<f64>,
+    pub temp_end: Option<f64>,
 }
 
 impl Debug for Period {

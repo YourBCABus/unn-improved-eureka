@@ -32,6 +32,8 @@ use async_graphql::{
 };
 use uuid::Uuid;
 
+use crate::database::prepared::teacher::get_teacher;
+use crate::types::Period;
 use crate::{
     types::Teacher,
     state::AppState,
@@ -39,7 +41,7 @@ use crate::{
 
 use crate::graphql::structs::{
     GraphQlTeacherName,
-    GraphQlPronounSet,
+    GraphQlPronounSet, TimeRangeInput,
 };
 
 /// This is a memberless struct implementing all the mutations for `improved-eureka`.
@@ -136,25 +138,40 @@ impl MutationRoot {
                 GraphQlError::new(format!("Database error: {e}"))
             })
     }
+    
+    async fn update_teacher_absence(
+        &self,
+        ctx_accessor: &Context<'_>,
+        id: Uuid,
+        periods: Vec<Uuid>,
+        fully_absent: bool,
+    ) -> GraphQlResult<Teacher> {
+        use crate::database::prepared::absences::update_absences_for_teacher as update_absences_for_teacher_in_db;
 
-    // #[graphql(arguments(
-    //     id(),
-    //     names(default = Vec::new()),
-    //     fully_absent(),
-    // ),)]
-    // async fn update_teacher_absence(
-    //     ctx: &Context,
-    //     id: TeacherId,
-    //     names: Vec<PeriodName>,
-    //     fully_absent: bool,
-    // ) -> juniper::FieldResult<TeacherMetadata> {
-    //     let mut db_context_mut = ctx.get_db_mut().await;
+        let ctx = ctx_accessor.data::<AppState>()?;
 
-    //     update_teacher_absence
-    //         ::update_teacher_absence(&mut db_context_mut.client, id, &names, fully_absent)
-    //         .await
-    //         .map_err(IntoFieldError::into_field_error)
-    // }
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        update_absences_for_teacher_in_db(&mut db_conn, id, &periods)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+        
+        get_teacher(&mut db_conn, id)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })
+    }
 
     // async fn delete_teacher(
     //     ctx: &Context,
@@ -170,45 +187,111 @@ impl MutationRoot {
     // }
 
 
-    // async fn add_period(
-    //     ctx: &Context,
-    //     name: String,
-    //     default_time: TimeRangeInput,
-    // ) -> juniper::FieldResult<PeriodMetadata> {
-    //     let mut db_context_mut = ctx.get_db_mut().await;
-        
-    //     add_period
-    //         ::add_period(&mut db_context_mut.client, &name, default_time)
-    //         .await
-    //         .map_err(IntoFieldError::into_field_error)
-    // }
+    async fn add_period(
+        &self,
+        ctx_accessor: &Context<'_>,
 
-    // async fn update_period(
-    //     ctx: &Context,
-    //     id: PeriodId,
-    //     name: Option<String>,
-    //     default_time: Option<TimeRangeInput>,
-    // ) -> juniper::FieldResult<PeriodMetadata> {
-    //     let mut db_context_mut = ctx.get_db_mut().await;
+        name: String,
+        default_time: TimeRangeInput,
+    ) -> GraphQlResult<Period> {
+        use crate::database::prepared::period::create_period as add_period_to_db;
 
-    //     update_period
-    //         ::update_period(&mut db_context_mut.client, id, name.as_deref(), default_time, (false, None))
-    //         .await
-    //         .map_err(IntoFieldError::into_field_error)
-    // }
+        let ctx = ctx_accessor.data::<AppState>()?;
 
-    // async fn update_period_temp_time(
-    //     ctx: &Context,
-    //     id: PeriodId,
-    //     temp_time: Option<TimeRangeInput>,
-    // ) -> juniper::FieldResult<PeriodMetadata> {
-    //     let mut db_context_mut = ctx.get_db_mut().await;
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
 
-    //     update_period
-    //         ::update_period(&mut db_context_mut.client, id, None, None, (true, temp_time))
-    //         .await
-    //         .map_err(IntoFieldError::into_field_error)
-    // }
+        add_period_to_db(&mut db_conn, &name, [default_time.start, default_time.end])
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })
+    }
+
+    async fn update_period_name(
+        &self,
+        ctx_accessor: &Context<'_>,
+
+        id: Uuid,
+        name: String,
+    ) -> GraphQlResult<Period> {
+        use crate::database::prepared::period::update_period_name as update_period_name_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        update_period_name_in_db(&mut db_conn, id, &name)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })
+    }
+    async fn update_period_time(
+        &self,
+        ctx_accessor: &Context<'_>,
+
+        id: Uuid,
+        time: TimeRangeInput,
+    ) -> GraphQlResult<Period> {
+        use crate::database::prepared::period::update_period_time as update_period_time_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        update_period_time_in_db(&mut db_conn, id, [time.start, time.end])
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })
+    }
+    async fn set_period_temp_time(
+        &self,
+        ctx_accessor: &Context<'_>,
+
+        id: Uuid,
+        temp_time: TimeRangeInput,
+    ) -> GraphQlResult<Period> {
+        use crate::database::prepared::period::set_period_temp_time as set_period_temp_time_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        set_period_temp_time_in_db(&mut db_conn, id, [temp_time.start, temp_time.end])
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })
+    }
 
     // async fn delete_period(
     //     ctx: &Context,

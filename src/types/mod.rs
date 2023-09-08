@@ -3,6 +3,8 @@ mod period;
 mod teacher;
 
 pub use teacher::{ Teacher, TeacherName, Honorific, pronouns::PronounSet };
+pub use period::Period;
+pub use absence::Absence;
 
 /*
                                         Table "public.periods"
