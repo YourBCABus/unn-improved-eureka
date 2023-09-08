@@ -40,6 +40,12 @@ async fn main() -> std::io::Result<()> {
     let schema = schema(ctx); // (true, Some(std::path::Path::new("./schema.graphql"))).unwrap();
     info!("Created schema");
 
+    if let Err(err) = std::fs::write("./schema.graphql", schema.sdl()) {
+        info!("Schema failed to save: {err}");
+    } else {
+        info!("Schema saved");
+    }
+
 
     let ip = "0.0.0.0";
 
