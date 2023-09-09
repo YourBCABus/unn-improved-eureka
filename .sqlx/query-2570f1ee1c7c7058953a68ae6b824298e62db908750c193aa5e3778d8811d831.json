@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                id,\n                sub, obj,\n                pos_adj, pos_pro,\n                refx, gramm_plu\n            FROM pronoun_sets\n                WHERE id = (SELECT pronouns FROM teachers WHERE id = $1);\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "sub",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "obj",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "pos_adj",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "pos_pro",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "refx",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "gramm_plu",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2570f1ee1c7c7058953a68ae6b824298e62db908750c193aa5e3778d8811d831"
+}

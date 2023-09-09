@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                period_id as period,\n                teacher_id as teacher\n            FROM absence_xref\n            WHERE id = $1;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "period",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "teacher",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "dfd7f510435b3d3330d7a9a25e1ebd4dabe451dc4606f63a0f755378d8521c12"
+}
