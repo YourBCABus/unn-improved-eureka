@@ -77,7 +77,7 @@ async fn main() -> std::io::Result<()> {
 
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 
-#[actix_web::post("/", name = "graphql_handler")]
+#[actix_web::post("/graphql", name = "graphql_handler")]
 async fn graphql_handler(
     request: GraphQLRequest,
     schema: web::Data<Schema>,
@@ -105,6 +105,5 @@ async fn interactive() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())
         .body(async_graphql::http::graphiql_source("/", None))
-    
 }
 
