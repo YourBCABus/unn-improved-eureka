@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE pronoun_sets (
     id uuid NOT NULL PRIMARY KEY,
     sub varchar(63) NOT NULL,
