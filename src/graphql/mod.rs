@@ -70,3 +70,11 @@ pub fn schema(app_state: AppState) -> Schema {
         .data(app_state)
         .finish()
 }
+
+pub fn save_schema(schema: &Schema, path: &str) {
+    if let Err(err) = std::fs::write(path, schema.sdl()) {
+        crate::logging::warn!("Schema failed to save to {path}: {err}");
+    } else {
+        crate::logging::info!("Schema saved to {path}");
+    }
+}

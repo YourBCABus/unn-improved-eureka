@@ -17,7 +17,7 @@ pub mod logging {
     //! 
     //! Usually you should just import all of it with
     //! ```no_run
-    //! use crate::log_env::logging::*;
+    //! use crate::logging::*;
     //! ```
 
     use arcs_logging_rs::with_target;
@@ -65,6 +65,16 @@ pub mod env {
     use arcs_env_rs::*;
 
     env_var_req!(PORT);
+
+    pub fn port_u16_panic() -> u16 {
+        let port = port();
+        let Ok(port) = port.parse() else {
+            crate::logging::error!("Failed to parse port as u16");
+            crate::logging::debug!("Port: {:#?}", port);
+            panic!("Failed to parse port as u16");
+        };
+        port
+    }
     
     assert_req_env!(
         check_env_vars:
