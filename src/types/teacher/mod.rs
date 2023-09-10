@@ -133,13 +133,19 @@ pub struct Teacher {
     pub (super) id: Uuid,
     pub (super) name: TeacherName,
     pub (super) pronouns: PronounSet,
+    pub (super) fully_absent: bool,
 }
 
 impl Teacher {
     pub fn new(id: Uuid, name: TeacherName, pronouns: PronounSet) -> Self {
-        Self { id, name, pronouns }
+        Self { id, name, pronouns, fully_absent: false }
     }
+    pub fn with_fully_absence(self, fully_absent: bool) -> Self {
+        Self { fully_absent, ..self }
+    }
+
     pub fn get_id(&self) -> Uuid { self.id }
     pub fn get_name(&self) -> &TeacherName { &self.name }
     pub fn get_pronouns(&self) -> &PronounSet { &self.pronouns }
+    pub fn get_fully_absent(&self) -> bool { self.fully_absent }
 }

@@ -1,7 +1,7 @@
 use sqlx::query_as;
 use uuid::Uuid;
 
-use super::super::Ctx;
+use super::{super::Ctx, teacher::update_teacher_full_absence};
 use crate::types::Absence;
 
 
@@ -113,7 +113,7 @@ pub async fn remove_absences_for_teacher(ctx: &mut Ctx, teacher: Uuid) -> Result
     remove_absences_query.execute(&mut **ctx).await.map(|_| ())
 }
 
-pub async fn update_absences_for_teacher(ctx: &mut Ctx, teacher: Uuid, periods: &[Uuid]) -> Result<Vec<Absence>, sqlx::Error> {
+pub async fn update_absences_for_teacher(ctx: &mut Ctx, teacher: Uuid, periods: &[Uuid], fully_absent: bool) -> Result<Vec<Absence>, sqlx::Error> {
 
     remove_absences_for_teacher(ctx, teacher).await?;
 
@@ -121,5 +121,7 @@ pub async fn update_absences_for_teacher(ctx: &mut Ctx, teacher: Uuid, periods: 
     for period in periods {
         absences.push(add_absence(ctx, *period, teacher).await?);
     }
+    update_teacher_full_absence(ctx, teacher, fully_absent).await?;
+    
     Ok(absences)
 }

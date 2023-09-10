@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE teachers\n            SET fully_absent = $2\n            WHERE id = $1;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "caa0dfa7cfa1c60ed4f2edeb51459c589d3a451a82d4af99a8ba8d8cce3ea2be"
+}

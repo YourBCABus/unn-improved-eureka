@@ -1,0 +1,106 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                t.id, t.fully_absent,\n\n                p.id AS pro_id,\n                p.sub AS pro_sub, p.obj AS pro_obj,\n                p.pos_adj AS pro_pos_adj, p.pos_pro AS pro_pos_pro,\n                p.refx AS pro_refx, p.gramm_plu AS pro_gramm_plu,\n\n                n.name_of AS name_name_of,\n                n.honorific AS name_honorific,\n                n.first AS name_first, n.last AS name_last,\n                n.middle_texts AS name_middle_texts, n.middle_display AS name_middle_display\n            FROM teachers AS t\n                INNER JOIN pronoun_sets AS p ON t.pronouns = p.id\n                INNER JOIN names AS n ON t.id = n.name_of\n                WHERE t.id = $1;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "fully_absent",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "pro_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "pro_sub",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "pro_obj",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "pro_pos_adj",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "pro_pos_pro",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "pro_refx",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 8,
+        "name": "pro_gramm_plu",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "name_name_of",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 10,
+        "name": "name_honorific",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 11,
+        "name": "name_first",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "name_last",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "name_middle_texts",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 14,
+        "name": "name_middle_display",
+        "type_info": "BoolArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d4d116018948d96feebf14ca9341d7fd47c1a893263a95e10af19beb65195276"
+}

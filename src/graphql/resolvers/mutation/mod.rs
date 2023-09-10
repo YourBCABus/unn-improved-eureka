@@ -158,7 +158,7 @@ impl MutationRoot {
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
 
-        update_absences_for_teacher_in_db(&mut db_conn, id, &periods)
+        update_absences_for_teacher_in_db(&mut db_conn, id, &periods, fully_absent)
             .await
             .map_err(|e| {
                 let e = e.to_string();
