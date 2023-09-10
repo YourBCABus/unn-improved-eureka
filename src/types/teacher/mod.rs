@@ -44,7 +44,7 @@ impl Honorific {
 }
 impl Debug for Honorific {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Honorary<{}>", self.str())
+        write!(f, "Honorific<{}>", self.str())
     }
 }
 impl Display for Honorific {
