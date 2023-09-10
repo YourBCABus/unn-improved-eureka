@@ -8,18 +8,34 @@ use serde::{ Serialize, Deserialize };
 use self::pronouns::PronounSet;
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Honorific { Ms, Mx, Mr, Dr, Mrs, Prof, Sir, Dame }
+pub enum Honorific {
+    Ms, Mx, Mr, Dr, Mrs, Prof,
+    Sir, Dame,
+    Madame, Mademoiselle, Monsieur,
+    Profe, Señora, Señor, Señorita,
+}
 impl Honorific {
     pub fn try_from_str(s: &str) -> Option<Self> {
-        match s {
-            "Ms" => Some(Self::Ms),
-            "Mx" => Some(Self::Mx),
-            "Mr" => Some(Self::Mr),
-            "Dr" => Some(Self::Dr),
-            "Mrs" => Some(Self::Mrs),
-            "Prof" => Some(Self::Prof),
-            "Sir" => Some(Self::Sir),
-            "Dame" => Some(Self::Dame),
+        match s.to_ascii_lowercase().as_str() {
+            "ms" | "miss" => Some(Self::Ms),
+            "mx" | "mix" => Some(Self::Mx),
+            "mr" | "mister" => Some(Self::Mr),
+            "dr" | "doctor" => Some(Self::Dr),
+            "mrs" | "missus" => Some(Self::Mrs),
+            
+            "prof" | "professor" => Some(Self::Prof),
+            "sir" => Some(Self::Sir),
+            "dame" => Some(Self::Dame),
+
+            "mme" | "madame" => Some(Self::Madame),
+            "mlle" | "mademoiselle" => Some(Self::Mademoiselle),
+            "m" | "monsieur" => Some(Self::Monsieur),
+
+            "profe" | "profesor" | "profesora" | "profesore" => Some(Self::Profe),
+            "sra" | "senora" | "señora" => Some(Self::Señora),
+            "sr" | "senor" | "señor" => Some(Self::Señor),
+            "srta" | "senorita" | "señorita" => Some(Self::Señorita),
+
             _ => None
         }
     }
@@ -31,14 +47,24 @@ impl Honorific {
             Self::Dr => "Dr",
             Self::Mrs => "Mrs",
             Self::Prof => "Prof",
+
             Self::Sir => "Sir",
             Self::Dame => "Dame",
+
+            Self::Madame => "Mme",
+            Self::Mademoiselle => "Mlle",
+            Self::Monsieur => "M",
+
+            Self::Profe => "Profe",
+            Self::Señora => "Sra",
+            Self::Señor => "Sr",
+            Self::Señorita => "Srta",
         }
     }
     pub fn is_abbreviation(&self) -> bool {
         match self {
-            Self::Mx | Self::Ms | Self::Mr | Self::Dr | Self::Mrs | Self::Prof => true,
-            Self::Sir | Self::Dame => false,
+            Self::Sir | Self::Dame | Self::Madame | Self::Mademoiselle => false,
+            _ => true,
         }
     }
 }
