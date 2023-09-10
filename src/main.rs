@@ -104,6 +104,6 @@ async fn graphql_handler(
 async fn interactive() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())
-        .body(async_graphql::http::graphiql_source("/", None))
+        .body(async_graphql::http::graphiql_source("/graphql", None))
 }
 
