@@ -140,7 +140,7 @@ pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error
         .map(|name| (name.name_of, name))
         .collect();
 
-    let mut pronouns_map: HashMap<_, _> = pronoun_sets
+    let pronouns_map: HashMap<_, _> = pronoun_sets
         .into_iter()
         .map(|pronoun_set| (pronoun_set.id, pronoun_set))
         .collect();
@@ -151,8 +151,8 @@ pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error
         .into_iter()
         .filter_map(|SqlTeacherJoiner { id, pronouns }| {
             let name = names_map.remove(&id);
-            let pronouns = pronouns_map.remove(&pronouns);
-            Some(Teacher::new(id, Option::from(name?)?, pronouns?.into()))
+            let pronouns = pronouns_map.get(&pronouns);
+            Some(Teacher::new(id, Option::from(name?)?, pronouns?.clone().into()))
         })
         .collect();
 
