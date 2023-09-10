@@ -10,7 +10,6 @@ use improved_eureka::database::connect_as;
 use improved_eureka::logging::*;
 
 
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenvy::dotenv().unwrap();
@@ -41,7 +40,7 @@ async fn main() -> std::io::Result<()> {
     info!("Created schema");
 
     if let Err(err) = std::fs::write("./schema.graphql", schema.sdl()) {
-        info!("Schema failed to save: {err}");
+        warn!("Schema failed to save: {err}");
     } else {
         info!("Schema saved");
     }
@@ -57,53 +56,57 @@ async fn main() -> std::io::Result<()> {
         panic!("Failed to parse port as u16");
     };
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
+        debug!("Server thread spun up");
         App::new()
             .app_data(actix_web::web::Data::new(schema.clone()))
-            // .service(
-            //     web::resource("/")
-            //         .guard(guard::Post())
-            //         .to(GraphQL::new(schema)),
-            // )
-            // .handler()
-            // .service(web::resource("/").guard(guard::Get()).to(index_graphiql))
             .service(graphql_handler)
             .service(interactive)
     })
         .bind((ip, port))?
-        .run()
-        .await
+        .run();
+
+    let (result, _) = tokio::join!(
+        server,
+        async { info!("Server started bound to {ip}:{port}"); },
+    );
+
+    result
 }
+
+
 
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 
+/// This route handles all of the GraphQL requests. It's essentially the basis
+/// of the API.
+/// 
+/// This function is mostly here to bridge an actix endpoint and
+/// `async_graphql`'s [`Schema`][async_graphql::Schema], so look in
+/// `crate::graphql` for more information.
 #[actix_web::post("/graphql", name = "graphql_handler")]
 async fn graphql_handler(
     request: GraphQLRequest,
     schema: web::Data<Schema>,
 ) -> GraphQLResponse {
-
     schema.execute(request.into_inner()).await.into()
-    // json
-    //     .into_inner()
-    //     .handle()
-    //     .await
-    //     .unwrap()
-    //     .response()
-
-    // if authorization.0.check_matches(&[ Token::Frontend, Token::Deploy ]) {
-    // } else {
-    //     // TODO: More accurate error messages
-    //     HttpResponse::Unauthorized()
-    //         .json(json!({ "error": "Improper bearer authentication" }))
-    // }
-    // HttpResponse::Ok().body(output)
 }
 
-#[actix_web::get("/")]
+
+
+/// This endpoint (`/`) handles serving the
+/// [`graphiql`][https://www.gatsbyjs.com/docs/how-to/querying-data/running-queries-with-graphiql/]
+/// interface for testing queries with Tablejet's API.
+/// 
+/// This shouldn't be used in production, but it's honestly invaluable in
+/// development.
+#[actix_web::get("/", name = "Interactive GraphQl Endpoint")]
 async fn interactive() -> impl Responder {
+    let html_response = async_graphql::http::graphiql_source("/graphql", None);
+    let html_response = html_response.replace("Simple GraphiQL Example", "Tablejet Interactive GraphQL API");
+
     HttpResponse::Ok()
         .content_type(ContentType::html())
-        .body(async_graphql::http::graphiql_source("/graphql", None))
+        .body(html_response)
 }
 

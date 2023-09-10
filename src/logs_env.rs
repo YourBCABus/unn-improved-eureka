@@ -1,8 +1,34 @@
+//! This crate is just for organizing `ARCS`-related crates that should
+//! eventually be migrated over to more general libraries
+//! 
+//! See [`logging`] and [`env`]
+
 pub mod logging {
+    //! Logging-related.
+    //! 
+    //! Contains:
+    //! - macros for general logging:
+    //!     - [`trace`]
+    //!     - [`debug`]
+    //!     - [`info`]
+    //!     - [`warn`]
+    //!     - [`error`]
+    //! - [`shortened`] for displayable shortened strings
+    //! 
+    //! Usually you should just import all of it with
+    //! ```no_run
+    //! use crate::log_env::logging::*;
+    //! ```
+
     use arcs_logging_rs::with_target;
-    with_target! { "Webhook" }
+    with_target! { "TableJet Improved Eureka" }
     
+    /// Display struct for [`shortened`]
     pub struct Shortened<'a>(&'a str, bool);
+    /// Get a version of a string which can be capped at a certain number of characters
+    /// 
+    /// This function is relatively fault-tolerant, and will default to the full
+    /// string if it can't shorten it correctly.
     pub fn shortened(string: &str, max_len: usize) -> Shortened {
         let (display_name, shortened) =  if string.chars().count() >= max_len {
             if let Some((idx, _)) = string.char_indices().nth(max_len-3) {
@@ -25,12 +51,17 @@ pub mod logging {
     }
     impl<'a> std::fmt::Debug for Shortened<'a> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "`{self}`")
+            write!(f, "`{:?}", self.0)?;
+            if self.1 {
+                write!(f, "...")?;
+            }
+            write!(f, "`")
         }
     }
 }
 
 pub mod env {
+
     use arcs_env_rs::*;
 
     env_var_req!(PORT);
@@ -43,6 +74,7 @@ pub mod env {
     pub mod sql {
         use arcs_env_rs::*;
 
+        
         env_var_req!(SQL_DB_NAME -> DB_NAME);
         // env_var_req!(SQL_DB_PASS -> DB_PASS);
 
