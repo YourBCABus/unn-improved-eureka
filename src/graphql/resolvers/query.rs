@@ -54,7 +54,7 @@ impl QueryRoot {
             .await
             .map_err(|e| {
                 let e = e.to_string();
-                GraphQlError::new(format!("Failed to get teachers from database {e}"))
+                GraphQlError::new(format!("Failed to get teacher from database {e}"))
             })
     }
 
@@ -86,6 +86,32 @@ impl QueryRoot {
                     let e = e.to_string();
                     GraphQlError::new(format!("Failed to get teacher from database {e}"))
                 }
+            })
+    }
+
+    async fn get_teacher_by_oauth(
+        &self,
+        ctx_accessor: &Context<'_>,
+        #[graphql(desc = "Provider of OAuth")] provider: String,
+        #[graphql(desc = "Sub of OAuth")] sub: String,
+    ) -> GraphQlResult<Teacher> {
+        use crate::database::prepared::teacher::get_teacher_by_oauth as get_teacher_by_oauth_from_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        get_teacher_by_oauth_from_db(&mut db_conn, provider, sub)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Failed to get teacher from database {e}"))
             })
     }
 

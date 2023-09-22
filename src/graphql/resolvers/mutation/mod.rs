@@ -173,6 +173,73 @@ impl MutationRoot {
             })
     }
 
+    async fn add_teacher_associated_oauth(
+        &self,
+        ctx_accessor: &Context<'_>,
+        id: Uuid,
+        provider: String,
+        sub: String,
+    ) -> GraphQlResult<Teacher> {
+        use crate::database::prepared::teacher::add_teacher_oauth as add_teacher_associated_oauth_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database: {e}"))
+            })?;
+
+        add_teacher_associated_oauth_in_db(&mut db_conn, id, provider, sub)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+
+        get_teacher(&mut db_conn, id)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })
+    }
+
+    async fn remove_teacher_associated_oauth(
+        &self,
+        ctx_accessor: &Context<'_>,
+        id: Uuid,
+        provider: String,
+    ) -> GraphQlResult<Teacher> {
+        use crate::database::prepared::teacher::remove_teacher_oauth as remove_teacher_associated_oauth_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database: {e}"))
+            })?;
+
+        remove_teacher_associated_oauth_in_db(&mut db_conn, id, provider)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+
+        get_teacher(&mut db_conn, id)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })
+    }
+
     // async fn delete_teacher(
     //     ctx: &Context,
     //     id: TeacherId,

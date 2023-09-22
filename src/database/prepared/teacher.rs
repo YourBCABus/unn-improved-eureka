@@ -118,53 +118,6 @@ pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error
 }
 
 
-// pub async fn update_chall(ctx: &mut Ctx, id: Uuid, input: ChallInput) -> Result<Option<Chall>, sqlx::Error> {
-//     let query = query!(
-//         r#"
-//             UPDATE challenges
-//             SET
-//                 name = COALESCE($2, name),
-//                 description = COALESCE($3, description),
-//                 points = COALESCE($4, points),
-//                 authors = COALESCE($5, authors),
-//                 hints = COALESCE($6, hints),
-//                 categories = COALESCE($7, categories),
-//                 tags = COALESCE($8, tags),
-//                 visible = COALESCE($9, visible),
-//                 source_folder = COALESCE($10, source_folder)
-//             WHERE id = $1;
-//         "#,
-//         id,
-//         input.name: String,
-//         input.description,
-//         input.points,
-//         input.authors.as_deref(),
-//         input.hints.as_deref(),
-//         input.categories.as_deref(),
-//         input.tags.as_deref(),
-//         input.visible,
-//         input.source_folder,
-//     );
-//     let affected = query
-//         .execute(&mut *ctx)
-//         .await?
-//         .rows_affected();
-
-//     if affected != 1 { return Ok(None) }
-
-//     if let Some(links) = input.links {
-//         set_chall_links(&mut *ctx, id, links).await?;
-//     }
-//     set_chall_updated(&mut *ctx, id).await?;
-
-//     let Some(output) = get_chall(ctx, id).await? else {
-//         return Err(sqlx::Error::RowNotFound);
-//     };
-
-//     Ok(Some(output))
-// }
-
-
 
 struct Id { id: Uuid }
 
@@ -331,4 +284,58 @@ pub async fn update_teacher_full_absence(ctx: &mut Ctx, id: Uuid, fully_absent: 
     update_absence.execute(&mut **ctx).await?;
 
     get_teacher(ctx, id).await
+}
+
+
+
+pub async fn get_teacher_by_oauth(ctx: &mut Ctx, provider: String, sub: String) -> Result<Teacher, sqlx::Error> {
+    let teacher_oauth_query = query_as!(
+        Id,
+        r#"
+            SELECT teacher as id
+            FROM teacher_oauths
+            WHERE
+                provider = $1 AND
+                sub = $2;
+        "#,
+        provider,
+        sub,
+    );
+
+    let teacher_id: Id = teacher_oauth_query.fetch_one(&mut **ctx).await?;
+
+    get_teacher(ctx, teacher_id.id).await
+}
+
+pub async fn add_teacher_oauth(ctx: &mut Ctx, teacher: Uuid, provider: String, sub: String) -> Result<(), sqlx::Error> {
+    let add_teacher_oauth = query!(
+        r#"
+            INSERT INTO teacher_oauths (teacher, provider, sub)
+            VALUES ($1, $2, $3);
+        "#,
+        teacher,
+        provider,
+        sub,
+    );
+
+    add_teacher_oauth.execute(&mut **ctx).await?;
+
+    Ok(())
+}
+
+pub async fn remove_teacher_oauth(ctx: &mut Ctx, teacher: Uuid, provider: String) -> Result<(), sqlx::Error> {
+    let remove_teacher_oauth = query!(
+        r#"
+            DELETE FROM teacher_oauths
+            WHERE
+                teacher = $1 AND
+                provider = $2;
+        "#,
+        teacher,
+        provider,
+    );
+
+    remove_teacher_oauth.execute(&mut **ctx).await?;
+
+    Ok(())
 }
