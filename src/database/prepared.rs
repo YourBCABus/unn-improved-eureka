@@ -4,3 +4,5 @@
 pub mod teacher;
 pub mod period;
 pub mod absences;
+
+pub mod future_absences;

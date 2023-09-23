@@ -30,6 +30,7 @@ use async_graphql::{
     Result as GraphQlResult,
     Error as GraphQlError,
 };
+use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::database::prepared::teacher::get_teacher;
@@ -239,6 +240,104 @@ impl MutationRoot {
                 GraphQlError::new(format!("Database error: {e}"))
             })
     }
+
+
+    async fn set_teacher_future_absence(
+        &self,
+        ctx_accessor: &Context<'_>,
+        date: NaiveDate,
+        id: Uuid,
+        periods: Vec<Uuid>,
+        fully_absent: bool,
+        comment: Option<String>,
+    ) -> GraphQlResult<bool> {
+        use crate::database::prepared::future_absences::set_future_day as set_future_absence_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        set_future_absence_in_db(
+            &mut db_conn,
+            date, id,
+            &periods, fully_absent, comment,
+        )
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+        
+        Ok(true)
+    }
+
+    async fn clear_teacher_future_absence(
+        &self,
+        ctx_accessor: &Context<'_>,
+        date: NaiveDate,
+        id: Uuid,
+    ) -> GraphQlResult<bool> {
+        use crate::database::prepared::future_absences::clear_future_day as clear_future_absence_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        clear_future_absence_in_db(
+            &mut db_conn,
+            date, id,
+        )
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+        
+        Ok(true)
+    }
+
+    async fn sync_and_flush_futures(
+        &self,
+        ctx_accessor: &Context<'_>,
+    ) -> GraphQlResult<bool> {
+        use crate::database::prepared::future_absences::flush_today as sync_and_flush_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        sync_and_flush_in_db(&mut db_conn)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+        
+        Ok(true)
+    }
+
 
     // async fn delete_teacher(
     //     ctx: &Context,
