@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                teacher as id,\n                EXTRACT(EPOCH FROM date)::float / 86400 as \"date!\",\n                periods,\n                fully_absent,\n                comment\n            FROM teacher_future_schedules\n            WHERE date = CURRENT_DATE;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "date!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "periods",
+        "type_info": "UuidArray"
+      },
+      {
+        "ordinal": 3,
+        "name": "fully_absent",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "comment",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "e0d4f94acee8522721f74b201504bce07fef1de781d1d8c99cd8177ae86090de"
+}

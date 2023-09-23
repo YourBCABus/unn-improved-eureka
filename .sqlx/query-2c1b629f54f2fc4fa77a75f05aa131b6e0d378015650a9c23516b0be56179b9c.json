@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO teacher_future_schedules (\n                teacher, date,\n\n                periods, fully_absent, comment\n            )\n            VALUES ($1, DATE '1/1/1970' + $2 * INTERVAL '1 day', $3, $4, $5)\n                ON CONFLICT (teacher, date)\n                DO UPDATE SET\n                    periods = $3,\n                    fully_absent = $4,\n                    comment = $5;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8",
+        "UuidArray",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2c1b629f54f2fc4fa77a75f05aa131b6e0d378015650a9c23516b0be56179b9c"
+}

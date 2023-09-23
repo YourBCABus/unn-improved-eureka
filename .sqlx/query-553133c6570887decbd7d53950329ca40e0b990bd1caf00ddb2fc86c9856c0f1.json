@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM teacher_future_schedules as tfs\n            WHERE tfs.date <= CURRENT_DATE;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "553133c6570887decbd7d53950329ca40e0b990bd1caf00ddb2fc86c9856c0f1"
+}
