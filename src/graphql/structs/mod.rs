@@ -1,7 +1,5 @@
 //! This module contains most of the structs compatible with graphql query/mutation resolution.
 
-pub mod scalars;
-pub mod objects;
 pub mod inputs;
 
 pub use inputs::*;

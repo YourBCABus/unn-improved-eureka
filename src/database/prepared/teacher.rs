@@ -1,3 +1,4 @@
+use constant_time_eq::constant_time_eq;
 use sqlx::{ query, query_as, Connection };
 use uuid::Uuid;
 
@@ -305,6 +306,27 @@ pub async fn get_teacher_by_oauth(ctx: &mut Ctx, provider: String, sub: String) 
     let teacher_id: Id = teacher_oauth_query.fetch_one(&mut **ctx).await?;
 
     get_teacher(ctx, teacher_id.id).await
+}
+pub async fn check_teacher_oauth(ctx: &mut Ctx, id: Uuid, provider: String, sub: String) -> Result<bool, sqlx::Error> {
+    let get_sub_query = query!(
+        r#"
+            SELECT sub
+            FROM teacher_oauths
+            WHERE
+                provider = $1 AND
+                teacher = $2;
+        "#,
+        provider,
+        id,
+    );
+
+    let db_sub = get_sub_query.fetch_one(&mut **ctx).await?.sub;
+    
+    if db_sub.len() != sub.len() {
+        return Ok(false);
+    }
+
+    Ok(constant_time_eq(db_sub.as_bytes(), sub.as_bytes()))
 }
 
 pub async fn add_teacher_oauth(ctx: &mut Ctx, teacher: Uuid, provider: String, sub: String) -> Result<(), sqlx::Error> {

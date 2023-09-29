@@ -6,8 +6,11 @@
 // mod all_periods;
 
 
-use crate::{state::AppState, types::Period};
+use crate::state::AppState;
+
 use crate::types::Teacher;
+use crate::types::Period;
+use crate::types::PackedAbsenceState;
 
 use async_graphql::{
     Object,
@@ -17,7 +20,9 @@ use async_graphql::{
     Error as GraphQlError,
 };
 
-use uuid::Uuid; 
+use chrono::NaiveDate;
+use uuid::Uuid;
+
 
 /// This is a memberless struct implementing all the queries for `improved-eureka`.
 /// This includes:
@@ -112,6 +117,44 @@ impl QueryRoot {
             .map_err(|e| {
                 let e = e.to_string();
                 GraphQlError::new(format!("Failed to get teacher from database {e}"))
+            })
+    }
+
+    async fn get_teacher_futures(
+        &self,
+        ctx_accessor: &Context<'_>,
+        id: Uuid,
+        start: NaiveDate,
+        end: NaiveDate,
+        #[graphql(desc = "Provider of OAuth")] provider: String,
+        #[graphql(desc = "Sub of OAuth")] sub: String,
+    ) -> GraphQlResult<Vec<PackedAbsenceState>> {
+        use crate::database::prepared::future_absences::get_future_days_for_teacher as get_futures_from_db;
+        use crate::database::prepared::teacher::check_teacher_oauth as check_oauth_db;
+
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        let oauth_res = check_oauth_db(&mut db_conn, id, provider, sub)
+            .await
+            .map_err(|_| GraphQlError::new("Not permitted to access this resource"))?;
+        if !oauth_res {
+            return Err(GraphQlError::new("Not permitted to access this resource"));
+        }
+
+        get_futures_from_db(&mut db_conn, id, start, end)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Failed to get teacher absence data from database {e}"))
             })
     }
 

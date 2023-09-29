@@ -4,7 +4,7 @@ mod teacher;
 
 pub use teacher::{ Teacher, TeacherName, Honorific, pronouns::PronounSet };
 pub use period::Period;
-pub use absence::Absence;
+pub use absence::{ Absence, PackedAbsenceState };
 
 /*
                                         Table "public.periods"

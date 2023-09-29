@@ -245,7 +245,8 @@ impl MutationRoot {
     async fn set_teacher_future_absence(
         &self,
         ctx_accessor: &Context<'_>,
-        date: NaiveDate,
+        start: NaiveDate,
+        end: Option<NaiveDate>,
         id: Uuid,
         periods: Vec<Uuid>,
         fully_absent: bool,
@@ -265,7 +266,7 @@ impl MutationRoot {
 
         set_future_absence_in_db(
             &mut db_conn,
-            date, id,
+            start, end.unwrap_or(start), id,
             &periods, fully_absent, comment,
         )
             .await
@@ -280,7 +281,8 @@ impl MutationRoot {
     async fn clear_teacher_future_absence(
         &self,
         ctx_accessor: &Context<'_>,
-        date: NaiveDate,
+        start: NaiveDate,
+        end: Option<NaiveDate>,
         id: Uuid,
     ) -> GraphQlResult<bool> {
         use crate::database::prepared::future_absences::clear_future_day as clear_future_absence_in_db;
@@ -298,7 +300,7 @@ impl MutationRoot {
 
         clear_future_absence_in_db(
             &mut db_conn,
-            date, id,
+            start, end.unwrap_or(start), id,
         )
             .await
             .map_err(|e| {
