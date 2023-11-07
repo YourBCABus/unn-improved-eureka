@@ -5,7 +5,7 @@ use chrono::{NaiveDate, Days};
 use sqlx::{ query, query_as };
 use uuid::Uuid;
 
-use crate::types::{PackedAbsenceState, Period};
+use crate::types::{PackedAbsenceState, Period, TeacherAbsenceStateList};
 
 use super::super::Ctx;
 use super::absences::update_absences_for_teacher;
@@ -23,8 +23,8 @@ pub async fn set_future_day(
     fully_absent: bool,
     comment: Option<String>,
 ) -> Result<(), sqlx::Error> {
-    let start_days_since_epoch = start.signed_duration_since(NaiveDate::default()).num_days() as i64;
-    let end_days_since_epoch = end.signed_duration_since(NaiveDate::default()).num_days() as i64;
+    let start_days_since_epoch = start.signed_duration_since(NaiveDate::default()).num_days();
+    let end_days_since_epoch = end.signed_duration_since(NaiveDate::default()).num_days();
 
     let add_or_update_future_date = query!(
         r#"
@@ -131,6 +131,7 @@ pub async fn flush_today(ctx: &mut Ctx) -> Result<(), sqlx::Error> {
 }
 
 struct BarebonesFutureDay {
+    pub teacher_id: Uuid,
     pub date: f64,
     pub periods: Vec<Uuid>,
     pub fully_absent: bool,
@@ -161,38 +162,39 @@ impl std::error::Error for ColumnDecodeError {
     }
 }
 
-pub async fn get_future_days_for_teacher(ctx: &mut Ctx, id: Uuid, start: NaiveDate, end: NaiveDate) -> Result<Vec<PackedAbsenceState>, sqlx::Error> {
-    fn get_packed_absence_state(future_day: BarebonesFutureDay, period_map: &HashMap<Uuid, Arc<Period>>) -> Result<PackedAbsenceState, sqlx::Error> {
-        let BarebonesFutureDay { periods, date, fully_absent, comment } = future_day;
+fn get_packed_absence_state(future_day: BarebonesFutureDay, period_map: &HashMap<Uuid, Arc<Period>>) -> Result<PackedAbsenceState, sqlx::Error> {
+    let BarebonesFutureDay { teacher_id, periods, date, fully_absent, comment } = future_day;
 
-        let periods: Result<Vec<_>, _> = periods.into_iter()
-            .map(|period_id| {
-                let Some(period) = period_map.get(&period_id) else {
-                    return Err(sqlx::Error::RowNotFound);
-                };
-                Ok(period.clone())
-            })
-            .collect();
-
-        let periods = periods?;
-
-        
-
-        let date = NaiveDate::default()
-            .checked_add_days(Days::new(future_day.date as u64))
-            .ok_or(sqlx::Error::ColumnDecode {
-                index: "Date".to_string(),
-                source: Box::new(ColumnDecodeError { column: "date", got: date.to_string(), expected_type: "Date" }),
-            })?;
-
-        Ok(PackedAbsenceState {
-            date,
-            periods,
-            fully: fully_absent,
-            comments: comment,
+    let periods: Result<Vec<_>, _> = periods.into_iter()
+        .map(|period_id| {
+            let Some(period) = period_map.get(&period_id) else {
+                return Err(sqlx::Error::RowNotFound);
+            };
+            Ok(period.clone())
         })
-    }
+        .collect();
 
+    let periods = periods?;
+
+    
+
+    let date = NaiveDate::default()
+        .checked_add_days(Days::new(future_day.date as u64))
+        .ok_or(sqlx::Error::ColumnDecode {
+            index: "Date".to_string(),
+            source: Box::new(ColumnDecodeError { column: "date", got: date.to_string(), expected_type: "Date" }),
+        })?;
+
+    Ok(PackedAbsenceState {
+        teacher_id,
+        date,
+        periods,
+        fully: fully_absent,
+        comments: comment,
+    })
+}
+
+pub async fn get_future_days_for_teacher(ctx: &mut Ctx, id: Uuid, start: NaiveDate, end: NaiveDate) -> Result<Vec<PackedAbsenceState>, sqlx::Error> {
     let start = start.signed_duration_since(NaiveDate::default()).num_days() as f64;
     let end = end.signed_duration_since(NaiveDate::default()).num_days() as f64;
 
@@ -200,6 +202,7 @@ pub async fn get_future_days_for_teacher(ctx: &mut Ctx, id: Uuid, start: NaiveDa
         BarebonesFutureDay,
         r#"
             SELECT
+                tfs.teacher as teacher_id,
                 EXTRACT(EPOCH FROM date)::float / 86400 as "date!",
                 periods,
                 fully_absent,
@@ -226,4 +229,51 @@ pub async fn get_future_days_for_teacher(ctx: &mut Ctx, id: Uuid, start: NaiveDa
     data.into_iter()
         .map(|future_day| get_packed_absence_state(future_day, &period_map))
         .collect()
+}
+
+pub async fn get_all_future_days(ctx: &mut Ctx, start: NaiveDate, end: NaiveDate) -> Result<Vec<TeacherAbsenceStateList>, sqlx::Error> {
+    let start = start.signed_duration_since(NaiveDate::default()).num_days() as f64;
+    let end = end.signed_duration_since(NaiveDate::default()).num_days() as f64;
+
+    let get_all_future_days_in_range = query_as!(
+        BarebonesFutureDay,
+        r#"
+            SELECT
+                tfs.teacher as teacher_id,
+                EXTRACT(EPOCH FROM date)::float / 86400 as "date!",
+                periods,
+                fully_absent,
+                comment
+            FROM teacher_future_schedules as tfs
+            WHERE
+                DATE '1/1/1970' + $1 * INTERVAL '1 day' <= tfs.date AND
+                tfs.date <= DATE '1/1/1970' + $2 * INTERVAL '1 day'
+            ORDER BY tfs.teacher;
+        "#,
+        start,
+        end,
+    );
+
+    let period_map: HashMap<_, _> = get_all_periods(ctx)
+        .await?
+        .into_iter()
+        .map(|period| (period.id, Arc::new(period)))
+        .collect();
+
+    let data = get_all_future_days_in_range.fetch_all(&mut **ctx).await?;
+
+    let future_day_iterator = data.into_iter().map(|future_day| get_packed_absence_state(future_day, &period_map));
+    
+
+    let mut teacher_map = HashMap::new();
+
+    for state in future_day_iterator {
+        let state = state?;
+        
+        teacher_map.entry(state.teacher_id)
+            .or_insert_with(Vec::new)
+            .push(state);
+    }
+
+    Ok(teacher_map.into_iter().map(|(id, states)| TeacherAbsenceStateList(id, states)).collect())
 }

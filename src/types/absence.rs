@@ -11,9 +11,14 @@ pub struct Absence {
     pub period: Uuid,
 }
 
+#[derive(Debug, Clone)]
 pub struct PackedAbsenceState {
+    pub (crate) teacher_id: Uuid,
     pub (crate) date: NaiveDate,
     pub (crate) fully: bool,
     pub (crate) periods: Vec<Arc<Period>>,
     pub (crate) comments: Option<String>,
 }
+
+#[derive(Debug, Clone)]
+pub struct TeacherAbsenceStateList(pub Uuid, pub Vec<PackedAbsenceState>);

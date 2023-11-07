@@ -6,3 +6,4 @@ pub mod period;
 pub mod absences;
 
 pub mod future_absences;
+pub mod privileges;
