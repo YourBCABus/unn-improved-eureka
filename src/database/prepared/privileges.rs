@@ -2,11 +2,7 @@ use sqlx::query_as;
 use uuid::Uuid;
 
 use crate::database::Ctx;
-
-pub struct Privileges {
-    pub secretary: bool,
-    pub admin: bool,
-}
+use crate::types::Privileges;
 
 pub async fn get_privileges(ctx: &mut Ctx, id: Uuid) -> Result<Privileges, sqlx::Error> {
     let privileges_query = query_as!(

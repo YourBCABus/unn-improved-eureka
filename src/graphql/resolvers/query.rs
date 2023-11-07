@@ -9,6 +9,7 @@
 use crate::database::prepared::privileges::get_privileges;
 use crate::state::AppState;
 
+use crate::types::Privileges;
 use crate::types::Teacher;
 use crate::types::Period;
 use crate::types::PackedAbsenceState;
@@ -168,7 +169,7 @@ impl QueryRoot {
         #[graphql(desc = "Sub of OAuth")] sub: String,
     ) -> GraphQlResult<Vec<TeacherAbsenceStateList>> {
         use crate::database::prepared::future_absences::get_all_future_days as get_all_futures_from_db;
-        use crate::database::prepared::teacher::{ check_teacher_oauth as check_oauth_db, get_teacher_by_oauth as get_teacher_db };
+        use crate::database::prepared::teacher::get_teacher_by_oauth as get_teacher_db;
 
 
         let ctx = ctx_accessor.data::<AppState>()?;
@@ -185,15 +186,6 @@ impl QueryRoot {
         let teacher = get_teacher_db(&mut db_conn, provider.clone(), sub.clone())
             .await
             .map_err(|_| GraphQlError::new("This oauth user doesn't exist"))?;
-
-        
-        let oauth_res = check_oauth_db(&mut db_conn, teacher.get_id(), provider, sub)
-            .await
-            .map_err(|_| GraphQlError::new("Not permitted to access this resource"))?;
-
-        if !oauth_res {
-            return Err(GraphQlError::new("Not permitted to access this resource"));
-        }
 
         let teacher_perms = get_privileges(&mut db_conn, teacher.get_id())
             .await
@@ -240,6 +232,41 @@ impl QueryRoot {
                     let e = e.to_string();
                     GraphQlError::new(format!("Failed to get period from database {e}"))
                 }
+            })
+    }
+
+
+
+
+    async fn get_privs(
+        &self,
+        ctx_accessor: &Context<'_>,
+        #[graphql(desc = "Provider of OAuth")] provider: String,
+        #[graphql(desc = "Sub of OAuth")] sub: String,
+    ) -> GraphQlResult<Privileges> {
+        use crate::database::prepared::privileges::get_privileges as get_privs_from_db;
+        use crate::database::prepared::teacher::get_teacher_by_oauth as get_teacher_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+
+        let teacher = get_teacher_db(&mut db_conn, provider.clone(), sub.clone())
+            .await
+            .map_err(|_| GraphQlError::new("This oauth user doesn't exist"))?;
+        
+        get_privs_from_db(&mut db_conn, teacher.get_id())
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Failed to get permissions for oauth user"))
             })
     }
 }
