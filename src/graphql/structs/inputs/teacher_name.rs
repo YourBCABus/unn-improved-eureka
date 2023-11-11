@@ -14,7 +14,7 @@ pub struct GraphQlHonorific(crate::types::Honorific);
 impl ScalarType for GraphQlHonorific {
     fn parse(value: Value) -> InputValueResult<Self> {
         if let Value::String(value) = &value {
-            if let Some(honorific) = crate::types::Honorific::try_from_str(&value) {
+            if let Some(honorific) = crate::types::Honorific::try_from_str(value) {
                 Ok(GraphQlHonorific(honorific))
             } else {
                 Err(InputValueError::custom(format!("Invalid honorific {value}")))

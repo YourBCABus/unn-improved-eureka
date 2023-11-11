@@ -1,14 +1,17 @@
 #![allow(unused_braces)]
 
-use async_graphql::Object;
+use async_graphql::{ Context, Object };
 
 use std::sync::Arc;
 use chrono::NaiveDate;
 use uuid::Uuid;
 
+use crate::graphql::req_id;
 use crate::types::Period;
 use crate::types::PackedAbsenceState;
 use crate::types::TeacherAbsenceStateList;
+use crate::logging::*;
+
 
 
 #[Object]
@@ -46,7 +49,8 @@ impl TeacherAbsenceStateList {
         self.0
     }
 
-    async fn absences(&self) -> &[PackedAbsenceState] {
+    async fn absences(&self, ctx: &Context<'_>) -> &[PackedAbsenceState] {
+        trace!("{} - Expanding absences for teacher {}", fmt_req_id(req_id(ctx)), SmallId(Some("t"), self.0));
         &self.1
     }
 }

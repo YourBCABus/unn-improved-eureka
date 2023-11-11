@@ -3,6 +3,7 @@
 //! 
 //! See [`logging`] and [`env`]
 
+#[allow(unused_macros)]
 pub mod logging {
     //! Logging-related.
     //! 
@@ -58,6 +59,24 @@ pub mod logging {
             write!(f, "`")
         }
     }
+
+
+    pub struct SmallId(pub Option<&'static str>, pub uuid::Uuid);
+
+    impl std::fmt::Display for SmallId {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "<")?;
+            if let Some(prefix) = self.0 {
+                write!(f, "{}:", prefix)?;
+            }
+            write!(f, "{:08x}>", self.1.as_fields().0)
+        }
+    }
+
+    pub fn fmt_req_id(id: uuid::Uuid) -> SmallId {
+        SmallId(Some("req"), id)
+    }
+
 }
 
 pub mod env {

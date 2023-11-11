@@ -242,6 +242,7 @@ impl MutationRoot {
     }
 
 
+    #[allow(clippy::too_many_arguments)]
     async fn set_teacher_future_absence(
         &self,
         ctx_accessor: &Context<'_>,

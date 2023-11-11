@@ -3,6 +3,7 @@
 use async_graphql::{Object, Enum};
 use crate::types::TeacherName;
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Enum)]
 enum FormatStyle {
     FirstLast,

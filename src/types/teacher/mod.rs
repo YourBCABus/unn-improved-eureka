@@ -62,10 +62,7 @@ impl Honorific {
         }
     }
     pub fn is_abbreviation(&self) -> bool {
-        match self {
-            Self::Sir | Self::Dame | Self::Madame | Self::Mademoiselle => false,
-            _ => true,
-        }
+        !matches!(self, Self::Sir | Self::Dame | Self::Madame | Self::Mademoiselle)
     }
 }
 impl Debug for Honorific {
@@ -142,10 +139,10 @@ impl Debug for TeacherName {
 }
 impl Display for TeacherName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{:?}] {:?} ", self.honorific, self.first)?;
+        write!(f, "{} {} ", self.honorific, self.first)?;
         for (display, name) in self.middle.iter() {
             if *display {
-                write!(f, "{:?} ", name)?;
+                write!(f, "{} ", name)?;
             }
         }
         write!(f, "{}", self.last)?;

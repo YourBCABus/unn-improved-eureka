@@ -46,7 +46,7 @@ impl From<SqlTeacherInfo> for Option<Teacher> {
         } = sql;
         
 
-        let middles = name_middle_display.into_iter().zip(name_middle_texts.into_iter()).collect();
+        let middles = name_middle_display.into_iter().zip(name_middle_texts).collect();
         let honorific = Honorific::try_from_str(&name_honorific)?;
 
         let name = TeacherName::new(honorific, name_first, name_last, middles);

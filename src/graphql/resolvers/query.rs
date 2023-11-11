@@ -266,7 +266,7 @@ impl QueryRoot {
             .await
             .map_err(|e| {
                 let e = e.to_string();
-                GraphQlError::new(format!("Failed to get permissions for oauth user"))
+                GraphQlError::new(format!("Failed to get permissions for oauth user {e}"))
             })
     }
 }
