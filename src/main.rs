@@ -9,8 +9,6 @@ use improved_eureka::graphql::schema;
 use improved_eureka::database::connect_as;
 use improved_eureka::logging::*;
 
-
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenvy::dotenv().unwrap();
@@ -56,6 +54,10 @@ async fn main() -> std::io::Result<()> {
         debug!("Port: {:#?}", port);
         panic!("Failed to parse port as u16");
     };
+
+    println!("issuing notification...");
+    improved_eureka::notifications::notify().await;
+    println!("notification sent out;");
 
     HttpServer::new(move || {
         App::new()
