@@ -1,8 +1,7 @@
 use fcm::{Client, MessageBuilder, NotificationBuilder};
 
 pub async fn notify() {
-    let topic = "/topics/4c9171fb-1e34-4183-9936-7f71175b331c.526a1c83-aec5-41f3-b437-70940602c4a1".to_string();
-    let api_key = "AAAAOnEFltY:APA91bEQPIUVPsPAPjp_a1-v6nDx5smYjglcKY37DinIf2SwA2cy3qaH4vBL6das0ejarkiaS-Ea31hUveMBixQOtnJIPZeibQ4K-ksk2VTI31eGOSPKVio7CV7nw02m5WcOMOlDUfwb";
+    let topic = "/topics/1fa55c29-9a9a-47f5-b2b1-690937364192.01269804-5d32-4040-aa9a-2f0c1a80be8c".to_string();
 
     let client = Client::new();
 
@@ -11,7 +10,7 @@ pub async fn notify() {
     builder.body("This is a test with topics");
     let notification = builder.finalize();
 
-    let mut builder = MessageBuilder::new(api_key, &topic);
+    let mut builder = MessageBuilder::new(crate::env::notifications::fcm_api_key(), &topic);
     builder.notification(notification);
     let message = builder.finalize();
 

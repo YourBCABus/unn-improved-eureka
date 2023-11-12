@@ -30,6 +30,7 @@ use async_graphql::{
     Result as GraphQlResult,
     Error as GraphQlError,
 };
+use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::database::prepared::teacher::get_teacher;
@@ -158,7 +159,7 @@ impl MutationRoot {
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
 
-        update_absences_for_teacher_in_db(&mut db_conn, id, &periods)
+        update_absences_for_teacher_in_db(&mut db_conn, id, &periods, fully_absent)
             .await
             .map_err(|e| {
                 let e = e.to_string();
@@ -172,6 +173,174 @@ impl MutationRoot {
                 GraphQlError::new(format!("Database error: {e}"))
             })
     }
+
+    async fn add_teacher_associated_oauth(
+        &self,
+        ctx_accessor: &Context<'_>,
+        id: Uuid,
+        provider: String,
+        sub: String,
+    ) -> GraphQlResult<Teacher> {
+        use crate::database::prepared::teacher::add_teacher_oauth as add_teacher_associated_oauth_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database: {e}"))
+            })?;
+
+        add_teacher_associated_oauth_in_db(&mut db_conn, id, provider, sub)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+
+        get_teacher(&mut db_conn, id)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })
+    }
+
+    async fn remove_teacher_associated_oauth(
+        &self,
+        ctx_accessor: &Context<'_>,
+        id: Uuid,
+        provider: String,
+    ) -> GraphQlResult<Teacher> {
+        use crate::database::prepared::teacher::remove_teacher_oauth as remove_teacher_associated_oauth_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database: {e}"))
+            })?;
+
+        remove_teacher_associated_oauth_in_db(&mut db_conn, id, provider)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+
+        get_teacher(&mut db_conn, id)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })
+    }
+
+
+    #[allow(clippy::too_many_arguments)]
+    async fn set_teacher_future_absence(
+        &self,
+        ctx_accessor: &Context<'_>,
+        start: NaiveDate,
+        end: Option<NaiveDate>,
+        id: Uuid,
+        periods: Vec<Uuid>,
+        fully_absent: bool,
+        comment: Option<String>,
+    ) -> GraphQlResult<bool> {
+        use crate::database::prepared::future_absences::set_future_day as set_future_absence_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        set_future_absence_in_db(
+            &mut db_conn,
+            start, end.unwrap_or(start), id,
+            &periods, fully_absent, comment,
+        )
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+        
+        Ok(true)
+    }
+
+    async fn clear_teacher_future_absence(
+        &self,
+        ctx_accessor: &Context<'_>,
+        start: NaiveDate,
+        end: Option<NaiveDate>,
+        id: Uuid,
+    ) -> GraphQlResult<bool> {
+        use crate::database::prepared::future_absences::clear_future_day as clear_future_absence_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        clear_future_absence_in_db(
+            &mut db_conn,
+            start, end.unwrap_or(start), id,
+        )
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+        
+        Ok(true)
+    }
+
+    async fn sync_and_flush_futures(
+        &self,
+        ctx_accessor: &Context<'_>,
+    ) -> GraphQlResult<bool> {
+        use crate::database::prepared::future_absences::flush_today as sync_and_flush_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        sync_and_flush_in_db(&mut db_conn)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+        
+        Ok(true)
+    }
+
 
     // async fn delete_teacher(
     //     ctx: &Context,

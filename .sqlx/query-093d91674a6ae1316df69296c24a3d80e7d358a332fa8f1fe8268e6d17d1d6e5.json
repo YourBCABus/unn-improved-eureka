@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE periods\n            SET\n                temp_start = TIME '00:00' + $2 * INTERVAL '1 second',\n                temp_end = TIME '00:00' + $3 * INTERVAL '1 second'\n            WHERE id = $1;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "093d91674a6ae1316df69296c24a3d80e7d358a332fa8f1fe8268e6d17d1d6e5"
+}

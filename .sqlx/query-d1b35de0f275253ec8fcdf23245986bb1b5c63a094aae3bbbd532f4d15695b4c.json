@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT sub\n            FROM teacher_oauths\n            WHERE\n                provider = $1 AND\n                teacher = $2;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sub",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d1b35de0f275253ec8fcdf23245986bb1b5c63a094aae3bbbd532f4d15695b4c"
+}

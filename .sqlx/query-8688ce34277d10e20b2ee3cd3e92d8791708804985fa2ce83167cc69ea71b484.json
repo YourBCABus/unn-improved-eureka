@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM teacher_oauths\n            WHERE\n                teacher = $1 AND\n                provider = $2;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8688ce34277d10e20b2ee3cd3e92d8791708804985fa2ce83167cc69ea71b484"
+}

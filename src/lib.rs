@@ -1,4 +1,4 @@
-#![warn(clippy::missing_docs_in_private_items)]
+// #![warn(clippy::missing_docs_in_private_items)]
 
 // TODO: Document Better
 
@@ -31,11 +31,17 @@
 //! 
 //! ## Crate Layout
 //! This crate is intended to be separated into the main components and modular duties of `eureka`. These include:
-//! - [database], for interacting with the persistent local SQL database
-//! - [graphql], for handling deserialized graphql queries
-//! - [verification], for precalculating diferent methods of verification to allow for greater security
+//! - [`database`], for interacting with the persistent local SQL database
+//! - [`graphql`], for handling deserialized graphql queries
+//! - Smaller parts, including:
+//!     - [`types`] for general types to represent internal "objects" (Teachers,
+//!       Periods, Absences, etc)
+//!     - [`state`] for a way to globally store the Schema and the database
+//!       connection pool
+//!     - [`logs_env::logging`] for all logging in the crate
+//!     - [`logs_env::env`] for pre-checking all of the environment variables on
+//!       server startup
 //! 
-//! Although this library's modules are public, most of the most important parts of each can be accessed from the [preludes] module.
 //! 
 //! ## Things Left to Do
 //! - Outward communication for notifs
@@ -45,9 +51,7 @@
 //!     - Internal?
 //!     - Redis?
 //!     - `POST` requests to separate web server?
-
-// pub mod utils;
-pub mod preludes;
+//! - ***Auth!***
 
 pub mod graphql;
 pub mod database;
@@ -56,11 +60,10 @@ pub mod notifications;
 
 // pub mod verification;
 
+
+
+
 pub mod types;
-
-pub use preludes::*;
-
+pub mod state;
 pub mod logs_env;
 pub use logs_env::*;
-
-pub mod state;

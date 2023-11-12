@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM absence_xref\n            WHERE\n                teacher_id = $1;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c076469518c36cc74c8b605bd3557715d2eeccea7ab63f2f21c1b66dc3ab1581"
+}

@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE names\n            SET\n                first = $2,\n                last = $3,\n                middle_texts = $4,\n                middle_display = $5,\n                honorific = $6\n            WHERE\n                name_of = $1;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "TextArray",
+        "BoolArray",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7cc5c528b996539568ecf8022ba4fc76f77b07d309f47235193c70c5e8f6dcdf"
+}

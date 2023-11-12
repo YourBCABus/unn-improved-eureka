@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM teacher_future_schedules\n            WHERE\n                teacher = $1 AND\n                daterange(\n                    (DATE '1/1/1970' + $2 * INTERVAL '1 day')::date,\n                    (DATE '1/1/1970' + $3 * INTERVAL '1 day')::date,\n                    '[]'::text\n                ) @> date;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e7dbf9815f0e5ad9b60e7b25681f1dbfa65004c75c24c8cf92fec299c9d01854"
+}

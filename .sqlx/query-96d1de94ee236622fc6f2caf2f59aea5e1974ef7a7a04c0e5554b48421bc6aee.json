@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                id,\n                name,\n                null as short_name,\n\n                EXTRACT(EPOCH FROM start_time)::float as \"start!\",\n                EXTRACT(EPOCH FROM end_time)::float as \"end!\",\n\n                EXTRACT(EPOCH FROM temp_start)::float as temp_start,\n                EXTRACT(EPOCH FROM temp_end)::float as temp_end\n            FROM periods\n            WHERE id = $1;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "short_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "start!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 4,
+        "name": "end!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "temp_start",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 6,
+        "name": "temp_end",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "96d1de94ee236622fc6f2caf2f59aea5e1974ef7a7a04c0e5554b48421bc6aee"
+}

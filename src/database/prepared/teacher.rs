@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use constant_time_eq::constant_time_eq;
 use sqlx::{ query, query_as, Connection };
 use uuid::Uuid;
 
@@ -8,203 +7,116 @@ use crate::types::{Teacher, TeacherName, PronounSet, Honorific};
 
 
 #[derive(Debug, Clone, sqlx::FromRow)]
-pub struct SqlTeacherName {
-    name_of: Uuid,
-    honorific: String,
-    first: String,
-    last: String,
-    middle_texts: Vec<String>,
-    middle_display: Vec<bool>,
-}
-impl From<SqlTeacherName> for Option<TeacherName> {
-    fn from(sql: SqlTeacherName) -> Self {
-        let SqlTeacherName { honorific, first, last, middle_texts, middle_display, .. } = sql;
-        
-        let middle = middle_display.into_iter().zip(middle_texts.into_iter()).collect();
-        let honorific = Honorific::try_from_str(&honorific);
-
-        honorific.map(|honorific| TeacherName::new(honorific, first, last, middle) )
-    }
-}
-
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct SqlPronouns {
+pub struct SqlTeacherInfo {
     id: Uuid,
-    sub: String,
-    obj: String,
-    pos_adj: String,
-    pos_pro: String,
-    refx: String,
-    gramm_plu: bool,
+    fully_absent: bool,
+
+    #[allow(unused)]
+    pro_id: Uuid,
+    pro_sub: String,
+    pro_obj: String,
+    pro_pos_adj: String,
+    pro_pos_pro: String,
+    pro_refx: String,
+    pro_gramm_plu: bool,
+
+    #[allow(unused)]
+    name_name_of: Uuid,
+    name_honorific: String,
+    name_first: String,
+    name_last: String,
+    name_middle_texts: Vec<String>,
+    name_middle_display: Vec<bool>,
 }
-impl From<SqlPronouns> for PronounSet {
-    fn from(value: SqlPronouns) -> Self {
-        let SqlPronouns { id: _, sub, obj, pos_adj, pos_pro, refx, gramm_plu } = value;
-        PronounSet { sub, object: obj, pos_adj, pos_pro, refx, gramm_plu }
+impl From<SqlTeacherInfo> for Option<Teacher> {
+    fn from(sql: SqlTeacherInfo) -> Self {
+        let SqlTeacherInfo {
+            id,
+            fully_absent,
+
+            pro_id: _,
+            pro_sub, pro_obj,
+            pro_pos_adj, pro_pos_pro,
+            pro_refx, pro_gramm_plu,
+
+            name_name_of: _,
+            name_honorific,
+            name_first, name_last,
+            name_middle_texts, name_middle_display,
+        } = sql;
+        
+
+        let middles = name_middle_display.into_iter().zip(name_middle_texts).collect();
+        let honorific = Honorific::try_from_str(&name_honorific)?;
+
+        let name = TeacherName::new(honorific, name_first, name_last, middles);
+
+        let pronouns = PronounSet {
+            sub: pro_sub, object: pro_obj,
+            pos_adj: pro_pos_adj, pos_pro: pro_pos_pro,
+            refx: pro_refx, gramm_plu: pro_gramm_plu,
+        };
+
+        Some(Teacher::new(id, name, pronouns).with_fully_absence(fully_absent))
     }
 }
 
 pub async fn get_teacher(ctx: &mut Ctx, id: Uuid) -> Result<Teacher, sqlx::Error> {
-    let teacher_name_query = query_as!(
-        SqlTeacherName,
+    let get_teacher_query = query_as!(
+        SqlTeacherInfo,
         r#"
             SELECT
-                name_of,
-                first, last,
-                middle_texts, middle_display,
-                honorific
-            FROM names
-                WHERE name_of = $1;
-        "#,
-        id,
-    );
-    let teacher_pronouns_query = query_as!(
-        SqlPronouns,
-        r#"
-            SELECT
-                id,
-                sub, obj,
-                pos_adj, pos_pro,
-                refx, gramm_plu
-            FROM pronoun_sets
-                WHERE id = (SELECT pronouns FROM teachers WHERE id = $1);
+                t.id, t.fully_absent,
+
+                p.id AS pro_id,
+                p.sub AS pro_sub, p.obj AS pro_obj,
+                p.pos_adj AS pro_pos_adj, p.pos_pro AS pro_pos_pro,
+                p.refx AS pro_refx, p.gramm_plu AS pro_gramm_plu,
+
+                n.name_of AS name_name_of,
+                n.honorific AS name_honorific,
+                n.first AS name_first, n.last AS name_last,
+                n.middle_texts AS name_middle_texts, n.middle_display AS name_middle_display
+            FROM teachers AS t
+                INNER JOIN pronoun_sets AS p ON t.pronouns = p.id
+                INNER JOIN names AS n ON t.id = n.name_of
+                WHERE t.id = $1;
         "#,
         id,
     );
 
-    let mut transaction = ctx.begin().await?;
+    let teacher_info = get_teacher_query.fetch_one(&mut **ctx).await?;
 
-    let name = teacher_name_query.fetch_one(&mut *transaction).await?;
-    let pronouns = teacher_pronouns_query.fetch_one(&mut *transaction).await?;
-
-    transaction.commit().await?;
-
-    let pronouns = pronouns.into();
-
-    let Some(name) = name.into() else {
-        return Err(sqlx::Error::ColumnNotFound(id.to_string()));
-    };
-
-    Ok(Teacher::new(id, name, pronouns))
-}
-
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct SqlTeacherJoiner {
-    id: Uuid,
-    pronouns: Uuid,
+    Option::from(teacher_info)
+        .ok_or_else(|| sqlx::Error::ColumnNotFound(id.to_string()))
 }
 
 pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error> {
-    let teacher_name_query = query_as!(
-        SqlTeacherName,
+    let get_all_teachers_query = query_as!(
+        SqlTeacherInfo,
         r#"
             SELECT
-                name_of,
-                first, last,
-                middle_texts, middle_display,
-                honorific
-            FROM names;
-        "#,
-    );
-    let teacher_pronouns_query = query_as!(
-        SqlPronouns,
-        r#"
-            SELECT
-                id,
-                sub, obj,
-                pos_adj, pos_pro,
-                refx, gramm_plu
-            FROM pronoun_sets;
-        "#,
-    );
-    let teacher_joiner_query = query_as!(
-        SqlTeacherJoiner,
-        r#"
-            SELECT id, pronouns FROM teachers;
+                t.id, t.fully_absent,
+
+                p.id AS pro_id,
+                p.sub AS pro_sub, p.obj AS pro_obj,
+                p.pos_adj AS pro_pos_adj, p.pos_pro AS pro_pos_pro,
+                p.refx AS pro_refx, p.gramm_plu AS pro_gramm_plu,
+
+                n.name_of AS name_name_of,
+                n.honorific AS name_honorific,
+                n.first AS name_first, n.last AS name_last,
+                n.middle_texts AS name_middle_texts, n.middle_display AS name_middle_display
+            FROM teachers AS t
+                INNER JOIN pronoun_sets AS p ON t.pronouns = p.id
+                INNER JOIN names AS n ON t.id = n.name_of;
         "#,
     );
 
+    let teacher_info = get_all_teachers_query.fetch_all(&mut **ctx).await?;
 
-    let mut transaction = ctx.begin().await?;
-
-    let names = teacher_name_query.fetch_all(&mut *transaction).await?;
-    let pronoun_sets = teacher_pronouns_query.fetch_all(&mut *transaction).await?;
-    let joiners = teacher_joiner_query.fetch_all(&mut *transaction).await?;
-
-    transaction.commit().await?;
-
-
-
-    let mut names_map: HashMap<_, _> = names
-        .into_iter()
-        .map(|name| (name.name_of, name))
-        .collect();
-
-    let mut pronouns_map: HashMap<_, _> = pronoun_sets
-        .into_iter()
-        .map(|pronoun_set| (pronoun_set.id, pronoun_set))
-        .collect();
-
-
-
-    let teachers: Vec<_> = joiners
-        .into_iter()
-        .filter_map(|SqlTeacherJoiner { id, pronouns }| {
-            let name = names_map.remove(&id);
-            let pronouns = pronouns_map.remove(&pronouns);
-            Some(Teacher::new(id, Option::from(name?)?, pronouns?.into()))
-        })
-        .collect();
-
-    Ok(teachers)
+    Ok(teacher_info.into_iter().filter_map(Option::from).collect())
 }
-
-
-// pub async fn update_chall(ctx: &mut Ctx, id: Uuid, input: ChallInput) -> Result<Option<Chall>, sqlx::Error> {
-//     let query = query!(
-//         r#"
-//             UPDATE challenges
-//             SET
-//                 name = COALESCE($2, name),
-//                 description = COALESCE($3, description),
-//                 points = COALESCE($4, points),
-//                 authors = COALESCE($5, authors),
-//                 hints = COALESCE($6, hints),
-//                 categories = COALESCE($7, categories),
-//                 tags = COALESCE($8, tags),
-//                 visible = COALESCE($9, visible),
-//                 source_folder = COALESCE($10, source_folder)
-//             WHERE id = $1;
-//         "#,
-//         id,
-//         input.name: String,
-//         input.description,
-//         input.points,
-//         input.authors.as_deref(),
-//         input.hints.as_deref(),
-//         input.categories.as_deref(),
-//         input.tags.as_deref(),
-//         input.visible,
-//         input.source_folder,
-//     );
-//     let affected = query
-//         .execute(&mut *ctx)
-//         .await?
-//         .rows_affected();
-
-//     if affected != 1 { return Ok(None) }
-
-//     if let Some(links) = input.links {
-//         set_chall_links(&mut *ctx, id, links).await?;
-//     }
-//     set_chall_updated(&mut *ctx, id).await?;
-
-//     let Some(output) = get_chall(ctx, id).await? else {
-//         return Err(sqlx::Error::RowNotFound);
-//     };
-
-//     Ok(Some(output))
-// }
 
 
 
@@ -358,3 +270,94 @@ pub async fn update_teacher_pronouns(ctx: &mut Ctx, id: Uuid, pronouns: PronounS
     get_teacher(ctx, id).await
 }
 
+
+pub async fn update_teacher_full_absence(ctx: &mut Ctx, id: Uuid, fully_absent: bool) -> sqlx::Result<Teacher> {
+    let update_absence = query!(
+        r#"
+            UPDATE teachers
+            SET fully_absent = $2
+            WHERE id = $1;
+        "#,
+        id,
+        fully_absent
+    );
+
+    update_absence.execute(&mut **ctx).await?;
+
+    get_teacher(ctx, id).await
+}
+
+
+
+pub async fn get_teacher_by_oauth(ctx: &mut Ctx, provider: String, sub: String) -> Result<Teacher, sqlx::Error> {
+    let teacher_oauth_query = query_as!(
+        Id,
+        r#"
+            SELECT teacher as id
+            FROM teacher_oauths
+            WHERE
+                provider = $1 AND
+                sub = $2;
+        "#,
+        provider,
+        sub,
+    );
+
+    let teacher_id: Id = teacher_oauth_query.fetch_one(&mut **ctx).await?;
+
+    get_teacher(ctx, teacher_id.id).await
+}
+pub async fn check_teacher_oauth(ctx: &mut Ctx, id: Uuid, provider: String, sub: String) -> Result<bool, sqlx::Error> {
+    let get_sub_query = query!(
+        r#"
+            SELECT sub
+            FROM teacher_oauths
+            WHERE
+                provider = $1 AND
+                teacher = $2;
+        "#,
+        provider,
+        id,
+    );
+
+    let db_sub = get_sub_query.fetch_one(&mut **ctx).await?.sub;
+    
+    if db_sub.len() != sub.len() {
+        return Ok(false);
+    }
+
+    Ok(constant_time_eq(db_sub.as_bytes(), sub.as_bytes()))
+}
+
+pub async fn add_teacher_oauth(ctx: &mut Ctx, teacher: Uuid, provider: String, sub: String) -> Result<(), sqlx::Error> {
+    let add_teacher_oauth = query!(
+        r#"
+            INSERT INTO teacher_oauths (teacher, provider, sub)
+            VALUES ($1, $2, $3);
+        "#,
+        teacher,
+        provider,
+        sub,
+    );
+
+    add_teacher_oauth.execute(&mut **ctx).await?;
+
+    Ok(())
+}
+
+pub async fn remove_teacher_oauth(ctx: &mut Ctx, teacher: Uuid, provider: String) -> Result<(), sqlx::Error> {
+    let remove_teacher_oauth = query!(
+        r#"
+            DELETE FROM teacher_oauths
+            WHERE
+                teacher = $1 AND
+                provider = $2;
+        "#,
+        teacher,
+        provider,
+    );
+
+    remove_teacher_oauth.execute(&mut **ctx).await?;
+
+    Ok(())
+}

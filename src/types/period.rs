@@ -9,7 +9,7 @@ pub struct Period {
     pub id: Uuid,
 
     pub name: String,
-    pub  short_name: Option<String>,
+    pub short_name: Option<String>,
 
     pub start: f64,
     pub end: f64,
@@ -24,7 +24,7 @@ impl Debug for Period {
         if let Some(short) = self.short_name.as_ref() {
             write!(f, "({:?}) ", short)?;
         }
-        write!(f, "[from {} to {}] {}", self.start, self.end, self.id.hyphenated())
+        write!(f, "[from {} to {}] {}>", self.start, self.end, self.id.hyphenated())
     }
 }
 impl Display for Period {

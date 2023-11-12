@@ -70,3 +70,31 @@ pub fn schema(app_state: AppState) -> Schema {
         .data(app_state)
         .finish()
 }
+
+pub fn save_schema(schema: &Schema, path: &str) {
+    if let Err(err) = std::fs::write(path, schema.sdl()) {
+        crate::logging::warn!("Schema failed to save to {path}: {err}");
+    } else {
+        crate::logging::info!("Schema saved to {path}");
+    }
+}
+
+fn req_id(context: &async_graphql::Context) -> uuid::Uuid {
+    const HEADER_NAME: &str = "internal-request-id";
+
+    if let Some(id) = context.insert_http_header(HEADER_NAME, "") {
+        let id = match id.to_str() {
+            Ok(id) => match uuid::Uuid::parse_str(id) {
+                Ok(id) => id,
+                Err(_) => uuid::Uuid::new_v4(),
+            },
+            Err(_) => uuid::Uuid::new_v4(),
+        };
+        context.insert_http_header(HEADER_NAME, id.hyphenated().to_string());
+        id
+    } else {
+        let id = uuid::Uuid::new_v4();
+        context.insert_http_header(HEADER_NAME, id.hyphenated().to_string());
+        id
+    }
+}
