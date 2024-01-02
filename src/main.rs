@@ -53,9 +53,9 @@ async fn get_setup() -> (actix_web::web::Data<Schema>, (&'static str, u16)) {
         sheets().unwrap();
     }
 
+    // TODO: Move this to a different binary at some point
     // let client_secret = "placeholder thing";
     // let client_id = uuid::uuid!("0000-0000-000000000000000jlsdnfukanlks.eluchmnaksef");
-
     // println!("{}", improved_eureka::verification::id_secret::generate_client_keystr(client_secret.as_bytes()).unwrap());
 
 
@@ -135,14 +135,9 @@ async fn graphql_handler(
 /// development.
 #[actix_web::get("/", name = "Interactive GraphQl Endpoint")]
 async fn interactive() -> impl Responder {
-    
-    // let html_response = async_graphql::http::graphiql_source("/graphql", None);
-    // let html_response = html_response.replace("Simple GraphiQL Example", "Tablejet Interactive GraphQL API");
 
     let config = GraphQLPlaygroundConfig::new("/graphql")
-        .title("TableJet Interactive GraphQL API")
-        .with_header("Client-Id", "d0bbe830-407c-4bc4-a5bd-4d4c9ef3f015")
-        .with_header("Client-Secret", "1ZETm6/lsI+9sivR12klBIGGyly2kSFucqb1KBFgivr2gVRU92+k0YeZTQozGVpq");
+        .title("TableJet Interactive GraphQL API");
 
     let html_response = playground_source(config);
 
@@ -150,4 +145,3 @@ async fn interactive() -> impl Responder {
         .content_type(ContentType::html())
         .body(html_response)
 }
-
