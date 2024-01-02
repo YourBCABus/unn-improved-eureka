@@ -56,9 +56,7 @@
 pub mod graphql;
 pub mod database;
 
-pub mod notifications;
-
-// pub mod verification;
+pub mod verification;
 
 
 

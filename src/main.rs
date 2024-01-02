@@ -1,9 +1,12 @@
+use actix_web::web::Header;
 use actix_web::{HttpServer, web, HttpResponse, http::header::ContentType, Responder, App};
 use arcs_logging_rs::set_up_logging;
 
 
 
+use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use improved_eureka::env::port_u16_panic;
+use improved_eureka::verification::{ClientSecretHeader, ClientIdHeader};
 use improved_eureka::{state::AppState, graphql::Schema};
 use improved_eureka::graphql::{schema, save_schema};
 
@@ -51,6 +54,12 @@ async fn get_setup() -> (actix_web::web::Data<Schema>, (&'static str, u16)) {
     }
 
 
+    let client_secret = "1ZETm6/lsI+9sivR12klBIGGyly2kSFucqb1KBFgivr2gVRU92+k0YeZTQozGVpq";
+    let client_id = uuid::uuid!("d0bbe830-407c-4bc4-a5bd-4d4c9ef3f015");
+
+    println!("{}", improved_eureka::verification::id_secret::generate_client_keystr(client_secret.as_bytes()).unwrap());
+
+
     let db = connect_as("TableJet Improved Eureka").await;
     let db = unwrap_connection(db);
     let ctx: AppState = AppState::new(db);
@@ -64,10 +73,6 @@ async fn get_setup() -> (actix_web::web::Data<Schema>, (&'static str, u16)) {
 
     let ip = "0.0.0.0";
     let port = port_u16_panic();
-
-    println!("issuing notification...");
-    improved_eureka::notifications::notify().await;
-    println!("notification sent out;");
 
     // HttpServer::new(move || {
     //     App::new()
@@ -102,8 +107,23 @@ use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 async fn graphql_handler(
     request: GraphQLRequest,
     schema: web::Data<Schema>,
-) -> GraphQLResponse {
-    schema.execute(request.into_inner()).await.into()
+
+    client_id: Option<Header<ClientIdHeader>>,
+    client_secret: Option<Header<ClientSecretHeader>>,
+) -> GraphQLResponse {    
+    let request = request.into_inner();
+    let request = if let Some(id) = client_id {
+        request.data(id.0)
+    } else {
+        request
+    };
+    let request = if let Some(secret) = client_secret {
+        request.data(secret.0)
+    } else {
+        request
+    };
+
+    schema.execute(request).await.into()
 }
 
 
@@ -116,8 +136,16 @@ async fn graphql_handler(
 /// development.
 #[actix_web::get("/", name = "Interactive GraphQl Endpoint")]
 async fn interactive() -> impl Responder {
-    let html_response = async_graphql::http::graphiql_source("/graphql", None);
-    let html_response = html_response.replace("Simple GraphiQL Example", "Tablejet Interactive GraphQL API");
+    
+    // let html_response = async_graphql::http::graphiql_source("/graphql", None);
+    // let html_response = html_response.replace("Simple GraphiQL Example", "Tablejet Interactive GraphQL API");
+
+    let config = GraphQLPlaygroundConfig::new("/graphql")
+        .title("TableJet Interactive GraphQL API")
+        .with_header("Client-Id", "d0bbe830-407c-4bc4-a5bd-4d4c9ef3f015")
+        .with_header("Client-Secret", "1ZETm6/lsI+9sivR12klBIGGyly2kSFucqb1KBFgivr2gVRU92+k0YeZTQozGVpq");
+
+    let html_response = playground_source(config);
 
     HttpResponse::Ok()
         .content_type(ContentType::html())

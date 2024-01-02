@@ -45,6 +45,27 @@ use crate::graphql::structs::{
     GraphQlPronounSet, TimeRangeInput,
 };
 
+
+macro_rules! ensure_auth {
+    ($ctx:ident, db: $db_conn:expr) => {
+        {
+            use $crate::verification::{ ClientIdHeader, ClientSecretHeader };
+            use $crate::verification::id_secret::client_allowed;
+
+            let client_id = $ctx.data::<ClientIdHeader>();
+            let client_secret = $ctx.data::<ClientSecretHeader>();
+
+            let (Ok(client_id), Ok(client_secret)) = (client_id, client_secret) else {
+                return Err(GraphQlError::new("Unauthorized"));
+            };
+
+            if !client_allowed(client_id.unwrap(), client_secret.as_bytes(), $db_conn).await {
+                return Err(GraphQlError::new("Unauthorized"));
+            }
+        }
+    };
+}
+
 /// This is a memberless struct implementing all the mutations for `improved-eureka`.
 /// This includes:
 /// - `add_teacher(name?, id?) -> Teacher`
@@ -73,6 +94,8 @@ impl MutationRoot {
                 let e = e.to_string();
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
+
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
 
         let teacher = Teacher::new(
             uuid::Uuid::new_v4(),
@@ -106,6 +129,8 @@ impl MutationRoot {
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
 
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
+
         update_teacher_name_in_db(&mut db_conn, id, name.into())
             .await
             .map_err(|e| {
@@ -131,6 +156,8 @@ impl MutationRoot {
                 let e = e.to_string();
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
+
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
 
         update_teacher_pronouns_in_db(&mut db_conn, id, pronouns.into())
             .await
@@ -158,6 +185,8 @@ impl MutationRoot {
                 let e = e.to_string();
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
+
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
 
         update_absences_for_teacher_in_db(&mut db_conn, id, &periods, fully_absent)
             .await
@@ -193,6 +222,8 @@ impl MutationRoot {
                 GraphQlError::new(format!("Could not open connection to the database: {e}"))
             })?;
 
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
+
         add_teacher_associated_oauth_in_db(&mut db_conn, id, provider, sub)
             .await
             .map_err(|e| {
@@ -225,6 +256,8 @@ impl MutationRoot {
                 let e = e.to_string();
                 GraphQlError::new(format!("Could not open connection to the database: {e}"))
             })?;
+
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
 
         remove_teacher_associated_oauth_in_db(&mut db_conn, id, provider)
             .await
@@ -265,6 +298,8 @@ impl MutationRoot {
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
 
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
+
         set_future_absence_in_db(
             &mut db_conn,
             start, end.unwrap_or(start), id,
@@ -299,6 +334,8 @@ impl MutationRoot {
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
 
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
+
         clear_future_absence_in_db(
             &mut db_conn,
             start, end.unwrap_or(start), id,
@@ -329,6 +366,8 @@ impl MutationRoot {
 
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
+
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
 
         sync_and_flush_in_db(&mut db_conn)
             .await
@@ -375,6 +414,8 @@ impl MutationRoot {
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
 
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
+
         add_period_to_db(&mut db_conn, &name, [default_time.start, default_time.end])
             .await
             .map_err(|e| {
@@ -402,6 +443,8 @@ impl MutationRoot {
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
 
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
+
         update_period_name_in_db(&mut db_conn, id, &name)
             .await
             .map_err(|e| {
@@ -428,6 +471,8 @@ impl MutationRoot {
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
 
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
+
         update_period_time_in_db(&mut db_conn, id, [time.start, time.end])
             .await
             .map_err(|e| {
@@ -453,6 +498,8 @@ impl MutationRoot {
                 let e = e.to_string();
                 GraphQlError::new(format!("Could not open connection to the database {e}"))
             })?;
+
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
 
         set_period_temp_time_in_db(&mut db_conn, id, [temp_time.start, temp_time.end])
             .await

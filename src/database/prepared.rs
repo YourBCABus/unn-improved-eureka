@@ -7,3 +7,5 @@ pub mod absences;
 
 pub mod future_absences;
 pub mod privileges;
+
+pub mod clients;
