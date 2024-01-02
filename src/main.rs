@@ -53,11 +53,10 @@ async fn get_setup() -> (actix_web::web::Data<Schema>, (&'static str, u16)) {
         sheets().unwrap();
     }
 
+    // let client_secret = "placeholder thing";
+    // let client_id = uuid::uuid!("0000-0000-000000000000000jlsdnfukanlks.eluchmnaksef");
 
-    let client_secret = "1ZETm6/lsI+9sivR12klBIGGyly2kSFucqb1KBFgivr2gVRU92+k0YeZTQozGVpq";
-    let client_id = uuid::uuid!("d0bbe830-407c-4bc4-a5bd-4d4c9ef3f015");
-
-    println!("{}", improved_eureka::verification::id_secret::generate_client_keystr(client_secret.as_bytes()).unwrap());
+    // println!("{}", improved_eureka::verification::id_secret::generate_client_keystr(client_secret.as_bytes()).unwrap());
 
 
     let db = connect_as("TableJet Improved Eureka").await;
