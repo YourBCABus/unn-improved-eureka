@@ -7,3 +7,4 @@ test.js
 !sql_schemas/**/*.sql
 .env
 *.log
+.cargo/config
