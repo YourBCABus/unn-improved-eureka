@@ -72,23 +72,7 @@ async fn get_setup() -> (actix_web::web::Data<Schema>, (&'static str, u16)) {
 
     let ip = "0.0.0.0";
     let port = port_u16_panic();
-
-    // HttpServer::new(move || {
-    //     App::new()
-    //         .app_data(actix_web::web::Data::new(schema.clone()))
-    //         // .service(
-    //         //     web::resource("/")
-    //         //         .guard(guard::Post())
-    //         //         .to(GraphQL::new(schema)),
-    //         // )
-    //         // .handler()
-    //         // .service(web::resource("/").guard(guard::Get()).to(index_graphiql))
-    //         .service(graphql_handler)
-    //         .service(interactive)
-    // })
-    //     .bind((ip, port))?
-    //     .run()
-    //     .await
+    
     (actix_web::web::Data::new(schema), (ip, port))
 }
 

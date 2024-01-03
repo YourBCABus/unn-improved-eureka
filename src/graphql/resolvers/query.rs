@@ -269,6 +269,30 @@ impl QueryRoot {
                 GraphQlError::new(format!("Failed to get permissions for oauth user {e}"))
             })
     }
+
+    async fn curr_spreadsheet_id(
+        &self,
+        ctx_accessor: &Context<'_>,
+    ) -> GraphQlResult<String> {
+        use crate::database::prepared::clients::get_sheet_id as get_sheet_id_from_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        get_sheet_id_from_db(&mut db_conn)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                GraphQlError::new(format!("Failed to get teacher from database {e}"))
+            })
+    }
 }
 
 

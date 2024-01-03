@@ -1,28 +1,6 @@
 //! This module contains solely the [MutationRoot] struct.
 //! It only exists for organizational purposes.
 
-// mod add_teacher;
-// mod update_teacher;
-// mod delete_teacher;
-
-// mod add_period;
-// mod update_period;
-// mod delete_period;
-
-
-// mod update_teacher_absence;
-// mod clear_absences;
-// mod clear_temp_times;
-
-// use crate::graphql_types::{
-//     scalars::teacher::*,
-//     scalars::period::*,
-//     juniper_types::IntoFieldError,
-//     *, inputs::{TimeRangeInput, PronounSetInput},
-// };
-
-// use super::{teacher::TeacherMetadata, period::PeriodMetadata};
-
 use async_graphql::{
     Object,
 
@@ -370,6 +348,37 @@ impl MutationRoot {
         ensure_auth!(ctx_accessor, db: &mut db_conn);
 
         sync_and_flush_in_db(&mut db_conn)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+
+                GraphQlError::new(format!("Database error: {e}"))
+            })?;
+        
+        Ok(true)
+    }
+
+    async fn set_spreadsheet_id(
+        &self,
+        ctx_accessor: &Context<'_>,
+        id: String,
+    ) -> GraphQlResult<bool> {
+        use crate::database::prepared::clients::set_sheet_id as set_sheet_id_in_db;
+
+        let ctx = ctx_accessor.data::<AppState>()?;
+
+        let mut db_conn = ctx.db()
+            .acquire()
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+
+                GraphQlError::new(format!("Could not open connection to the database {e}"))
+            })?;
+
+        ensure_auth!(ctx_accessor, db: &mut db_conn);
+
+        set_sheet_id_in_db(&mut db_conn, &id)
             .await
             .map_err(|e| {
                 let e = e.to_string();
