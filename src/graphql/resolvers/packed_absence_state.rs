@@ -50,7 +50,7 @@ impl TeacherAbsenceStateList {
     }
 
     async fn absences(&self, ctx: &Context<'_>) -> &[PackedAbsenceState] {
-        trace!("{} - Expanding absences for teacher {}", fmt_req_id(req_id(ctx)), SmallId(Some("t"), self.0));
+        // trace!("{} - Expanding absences for teacher {}", fmt_req_id(req_id(ctx)), SmallId(Some("t"), self.0));
         &self.1
     }
 }

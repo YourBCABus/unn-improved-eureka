@@ -34,7 +34,7 @@ impl Period {
         &self,
         ctx: &Context<'_>,
     ) -> GraphQlResult<Vec<Teacher>> {
-        trace!("{} - Expanding teachers absent for period {} <{}>", fmt_req_id(req_id(ctx)), self.name, SmallId(Some("p"), self.id));
+        // trace!("{} - Expanding teachers absent for period {} <{}>", fmt_req_id(req_id(ctx)), self.name, SmallId(Some("p"), self.id));
 
         let ctx_accessor = ctx;
         let ctx = ctx_accessor.data::<AppState>()?;

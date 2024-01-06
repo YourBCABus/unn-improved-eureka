@@ -31,7 +31,7 @@ impl Teacher {
         &self,
         ctx: &Context<'_>,
     ) -> GraphQlResult<Vec<Period>> {
-        trace!("{} - Expanding {}'s {} current absence data", fmt_req_id(req_id(ctx)), self.get_name(), SmallId(Some("t"), req_id(ctx)));
+        // trace!("{} - Expanding {}'s {} current absence data", fmt_req_id(req_id(ctx)), self.get_name(), SmallId(Some("t"), req_id(ctx)));
 
         let ctx_accessor = ctx;
         let ctx = ctx_accessor.data::<AppState>()?;
