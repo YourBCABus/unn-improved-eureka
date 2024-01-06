@@ -1,0 +1,11 @@
+{
+    "scripts": {
+        "start": "cargo run --release",
+        "start-binary": "./improved-eureka",
+        
+        "up": "pm2 start ./target/release/improved-eureka --name improved-eureka --watch",
+        "up-binary": "pm2 start ./improved-eureka --name improved-eureka --watch",
+
+        "down": "pm2 stop improved-eureka --watch && pm2 delete improved-eureka"
+    }
+}
