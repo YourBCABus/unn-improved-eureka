@@ -15,3 +15,19 @@ pub use {
     // absence_state::AbsenceStateMetadata,
     time_range::TimeRange,
 };
+
+macro_rules! get_db {
+    ($ctx_accessor:expr) => {
+        {
+            let ctx = $ctx_accessor.data::<$crate::state::AppState>()?;
+            ctx.db()
+                .acquire()
+                .await
+                .map_err(|e| {
+                    let e = e.to_string();
+                    async_graphql::Error::new(format!("Could not open connection to the database {e}"))
+                })?
+        }
+    };
+}
+pub (crate) use get_db;

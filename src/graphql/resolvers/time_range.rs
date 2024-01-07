@@ -66,7 +66,6 @@ impl From<(f64, f64)> for TimeRange {
 
 
 
-// #[allow(clippy::)]
 #[Object]
 impl TimeRange {
     async fn start(&self) -> f64 {

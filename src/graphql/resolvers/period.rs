@@ -10,11 +10,10 @@ use uuid::Uuid;
 
 use crate::graphql::req_id;
 use crate::types::{Period, Teacher};
-use crate::state::AppState;
 use crate::database::Ctx;
 use crate::logging::*;
 
-use super::TimeRange;
+use super::{TimeRange, get_db};
 
 #[Object]
 impl Period {
@@ -34,33 +33,22 @@ impl Period {
         &self,
         ctx: &Context<'_>,
     ) -> GraphQlResult<Vec<Teacher>> {
-        // trace!("{} - Expanding teachers absent for period {} <{}>", fmt_req_id(req_id(ctx)), self.name, SmallId(Some("p"), self.id));
+        let mut db_conn = get_db!(ctx);
+        let req_id = req_id(ctx);
 
-        let ctx_accessor = ctx;
-        let ctx = ctx_accessor.data::<AppState>()?;
-
-        let mut db_conn = ctx.db()
-            .acquire()
+        let ids = TeacherList::get_by_period(req_id, self.id, &mut db_conn)
             .await
             .map_err(|e| {
                 let e = e.to_string();
-                error!("{} - Could not open connection to the database {e}", fmt_req_id(req_id(ctx_accessor)));
-                GraphQlError::new(format!("Could not open connection to the database {e}"))
-            })?;
-
-        let ids = TeacherList::get_by_period(req_id(ctx_accessor), self.id, &mut db_conn)
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                error!("{} - Failed to get absent teacher ids from database {e}", fmt_req_id(req_id(ctx_accessor)));
+                error!("{} - Failed to get absent teacher ids from database {e}", fmt_req_id(req_id));
                 GraphQlError::new(format!("Failed to get absent teacher ids from database {e}"))
             })?;
 
-        ids.get_teachers(req_id(ctx_accessor), &mut db_conn)
+        ids.get_teachers(req_id, &mut db_conn)
             .await
             .map_err(|e| {
                 let e = e.to_string();
-                error!("{} - Failed to get absent teacher data from database {e}", fmt_req_id(req_id(ctx_accessor)));
+                error!("{} - Failed to get absent teacher data from database {e}", fmt_req_id(req_id));
                 GraphQlError::new(format!("Failed to get absent teachers from database {e}"))
             })
     }

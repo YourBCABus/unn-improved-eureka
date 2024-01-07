@@ -2,8 +2,8 @@ use async_graphql::Object;
 use async_graphql::{ Error as GraphQlError, Result as GraphQlResult, Context };
 
 use crate::types::{Teacher, PronounSet, TeacherName, Period};
-use crate::state::AppState;
 
+use super::get_db;
 
 use uuid::Uuid;
 
@@ -31,16 +31,7 @@ impl Teacher {
     ) -> GraphQlResult<Vec<Period>> {
         // trace!("{} - Expanding {}'s {} current absence data", fmt_req_id(req_id(ctx)), self.get_name(), SmallId(Some("t"), req_id(ctx)));
 
-        let ctx_accessor = ctx;
-        let ctx = ctx_accessor.data::<AppState>()?;
-
-        let mut db_conn = ctx.db()
-            .acquire()
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Could not open connection to the database {e}"))
-            })?;
+        let mut db_conn = get_db!(ctx);
 
         let ids = PeriodList::get_by_teacher(self.get_id(), &mut db_conn)
             .await
@@ -69,6 +60,7 @@ pub struct PeriodList(Vec<Uuid>);
 
 
 use crate::database::Ctx;
+
 impl PeriodList {
     pub async fn get_by_teacher(period_id: Uuid, db: &mut Ctx) -> sqlx::Result<Self> {
         use crate::database::prepared::absences::get_all_absences_for_teacher;

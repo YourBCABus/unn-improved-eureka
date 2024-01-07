@@ -7,13 +7,14 @@
 
 
 use crate::database::prepared::privileges::get_privileges;
-use crate::state::AppState;
 
 use crate::types::Privileges;
 use crate::types::Teacher;
 use crate::types::Period;
 use crate::types::PackedAbsenceState;
 use crate::types::TeacherAbsenceStateList;
+
+use super::get_db;
 
 use async_graphql::{
     Object,
@@ -43,20 +44,12 @@ pub struct QueryRoot;
 impl QueryRoot {
     async fn get_teacher(
         &self,
-        ctx_accessor: &Context<'_>,
+        ctx: &Context<'_>,
         #[graphql(desc = "Id of teacher")] id: Uuid,
     ) -> GraphQlResult<Teacher> {
         use crate::database::prepared::teacher::get_teacher as get_teacher_from_db;
 
-        let ctx = ctx_accessor.data::<AppState>()?;
-
-        let mut db_conn = ctx.db()
-            .acquire()
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Could not open connection to the database {e}"))
-            })?;
+        let mut db_conn = get_db!(ctx);
 
         get_teacher_from_db(&mut db_conn, id)
             .await
@@ -71,18 +64,8 @@ impl QueryRoot {
         ctx: &Context<'_>,
     ) -> GraphQlResult<Vec<Teacher>> {
         use crate::database::prepared::teacher::get_all_teachers as get_all_teachers_from_db;        
-        
-        let ctx_accessor = ctx;
-        let ctx = ctx_accessor.data::<AppState>()?;
 
-        let mut db_conn = ctx.db()
-            .acquire()
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Could not open connection to the database {e}"))
-            })?;
-
+        let mut db_conn = get_db!(ctx);
             
 
         get_all_teachers_from_db(&mut db_conn)
@@ -99,21 +82,13 @@ impl QueryRoot {
 
     async fn get_teacher_by_oauth(
         &self,
-        ctx_accessor: &Context<'_>,
+        ctx: &Context<'_>,
         #[graphql(desc = "Provider of OAuth")] provider: String,
         #[graphql(desc = "Sub of OAuth")] sub: String,
     ) -> GraphQlResult<Teacher> {
         use crate::database::prepared::teacher::get_teacher_by_oauth as get_teacher_by_oauth_from_db;
 
-        let ctx = ctx_accessor.data::<AppState>()?;
-
-        let mut db_conn = ctx.db()
-            .acquire()
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Could not open connection to the database {e}"))
-            })?;
+        let mut db_conn = get_db!(ctx);
 
         get_teacher_by_oauth_from_db(&mut db_conn, provider, sub)
             .await
@@ -125,7 +100,7 @@ impl QueryRoot {
 
     async fn get_teacher_futures(
         &self,
-        ctx_accessor: &Context<'_>,
+        ctx: &Context<'_>,
         id: Uuid,
         start: NaiveDate,
         end: NaiveDate,
@@ -135,16 +110,7 @@ impl QueryRoot {
         use crate::database::prepared::future_absences::get_future_days_for_teacher as get_futures_from_db;
         use crate::database::prepared::teacher::check_teacher_oauth as check_oauth_db;
 
-
-        let ctx = ctx_accessor.data::<AppState>()?;
-
-        let mut db_conn = ctx.db()
-            .acquire()
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Could not open connection to the database {e}"))
-            })?;
+        let mut db_conn = get_db!(ctx);
 
         let oauth_res = check_oauth_db(&mut db_conn, id, provider, sub)
             .await
@@ -162,7 +128,7 @@ impl QueryRoot {
     }
     async fn get_all_teacher_futures(
         &self,
-        ctx_accessor: &Context<'_>,
+        ctx: &Context<'_>,
         start: NaiveDate,
         end: NaiveDate,
         #[graphql(desc = "Provider of OAuth")] provider: String,
@@ -171,16 +137,7 @@ impl QueryRoot {
         use crate::database::prepared::future_absences::get_all_future_days as get_all_futures_from_db;
         use crate::database::prepared::teacher::get_teacher_by_oauth as get_teacher_db;
 
-
-        let ctx = ctx_accessor.data::<AppState>()?;
-
-        let mut db_conn = ctx.db()
-            .acquire()
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Could not open connection to the database {e}"))
-            })?;
+        let mut db_conn = get_db!(ctx);
 
 
         let teacher = get_teacher_db(&mut db_conn, provider.clone(), sub.clone())
@@ -210,17 +167,7 @@ impl QueryRoot {
     ) -> GraphQlResult<Vec<Period>> {
         use crate::database::prepared::period::get_all_periods as get_all_periods_from_db;        
         
-        let ctx_accessor = ctx;
-        let ctx = ctx_accessor.data::<AppState>()?;
-
-        let mut db_conn = ctx.db()
-            .acquire()
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Could not open connection to the database {e}"))
-            })?;
-
+        let mut db_conn = get_db!(ctx);
             
 
         get_all_periods_from_db(&mut db_conn)
@@ -240,22 +187,14 @@ impl QueryRoot {
 
     async fn get_privs(
         &self,
-        ctx_accessor: &Context<'_>,
+        ctx: &Context<'_>,
         #[graphql(desc = "Provider of OAuth")] provider: String,
         #[graphql(desc = "Sub of OAuth")] sub: String,
     ) -> GraphQlResult<Privileges> {
         use crate::database::prepared::privileges::get_privileges as get_privs_from_db;
         use crate::database::prepared::teacher::get_teacher_by_oauth as get_teacher_db;
 
-        let ctx = ctx_accessor.data::<AppState>()?;
-
-        let mut db_conn = ctx.db()
-            .acquire()
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Could not open connection to the database {e}"))
-            })?;
+        let mut db_conn = get_db!(ctx);
 
 
         let teacher = get_teacher_db(&mut db_conn, provider.clone(), sub.clone())
@@ -272,19 +211,11 @@ impl QueryRoot {
 
     async fn curr_spreadsheet_id(
         &self,
-        ctx_accessor: &Context<'_>,
+        ctx: &Context<'_>,
     ) -> GraphQlResult<String> {
         use crate::database::prepared::clients::get_sheet_id as get_sheet_id_from_db;
 
-        let ctx = ctx_accessor.data::<AppState>()?;
-
-        let mut db_conn = ctx.db()
-            .acquire()
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Could not open connection to the database {e}"))
-            })?;
+        let mut db_conn = get_db!(ctx);
 
         get_sheet_id_from_db(&mut db_conn)
             .await
