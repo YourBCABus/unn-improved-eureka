@@ -24,6 +24,7 @@ impl TimeRange {
 impl TryFrom<TimeRangeInput> for TimeRange {
     type Error = (f64, f64);
     fn try_from(value: TimeRangeInput) -> Result<Self, Self::Error> {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let (start, end) = (
             value.start.rem_euclid(24.0 * 60.0 * 60.0).floor() as u32,
             value.end.rem_euclid(24.0 * 60.0 * 60.0).floor() as u32,
@@ -65,13 +66,18 @@ impl From<(f64, f64)> for TimeRange {
 
 
 
+// #[allow(clippy::)]
 #[Object]
 impl TimeRange {
     async fn start(&self) -> f64 {
-        self.start.num_seconds_from_midnight() as f64 + self.start.nanosecond() as f64 / 1_000_000_000.0
+        let seconds = f64::from(self.start.num_seconds_from_midnight());
+        let nanoseconds = f64::from(self.start.nanosecond()) / 1_000_000_000.0;
+        seconds + nanoseconds
     }
     async fn end(&self) -> f64 {
-        self.end.num_seconds_from_midnight() as f64 + self.end.nanosecond() as f64 / 1_000_000_000.0
+        let seconds = f64::from(self.end.num_seconds_from_midnight());
+        let nanoseconds = f64::from(self.end.nanosecond()) / 1_000_000_000.0;
+        seconds + nanoseconds
     }
 }
 

@@ -92,7 +92,7 @@ impl TeacherList {
 
         let teachers = self.0
             .into_iter()
-            .flat_map(|id| teacher_map.remove(&id))
+            .filter_map(|id| teacher_map.remove(&id))
             .collect();
         
         Ok(teachers)

@@ -1,4 +1,4 @@
-//! This module contains solely the [MutationRoot] struct.
+//! This module contains solely the [`MutationRoot`] struct.
 //! It only exists for organizational purposes.
 
 use async_graphql::{

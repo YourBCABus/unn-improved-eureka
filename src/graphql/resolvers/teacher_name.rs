@@ -26,6 +26,7 @@ impl TeacherName {
         format_style: FormatStyle
     ) -> String {
         use FormatStyle::*;
+        
         let first = self.get_first();
         let last = self.get_last();
         let honorific = self.get_honorific();

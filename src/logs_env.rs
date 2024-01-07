@@ -67,7 +67,7 @@ pub mod logging {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "<")?;
             if let Some(prefix) = self.0 {
-                write!(f, "{}:", prefix)?;
+                write!(f, "{prefix}:")?;
             }
             write!(f, "{:08x}>", self.1.as_fields().0)
         }
@@ -85,6 +85,14 @@ pub mod env {
 
     env_var_req!(PORT);
 
+    /// Get the port to bind to from the environment variables
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the port is not a valid u16
+    /// - `> 65535`
+    /// - `< 0`
+    /// - not a number
     pub fn port_u16_panic() -> u16 {
         let port = port();
         let Ok(port) = port.parse() else {

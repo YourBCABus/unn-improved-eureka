@@ -1,4 +1,4 @@
-//! This module contains solely the [QueryRoot] struct.
+//! This module contains solely the [`QueryRoot`] struct.
 //! It only exists for organizational purposes.
 
 // mod get_teacher;

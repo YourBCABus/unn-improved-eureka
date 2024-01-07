@@ -1,10 +1,8 @@
 use async_graphql::Object;
 use async_graphql::{ Error as GraphQlError, Result as GraphQlResult, Context };
 
-use crate::graphql::req_id;
 use crate::types::{Teacher, PronounSet, TeacherName, Period};
 use crate::state::AppState;
-use crate::logging::*;
 
 
 use uuid::Uuid;
@@ -91,7 +89,7 @@ impl PeriodList {
 
         let periods = self.0
             .into_iter()
-            .flat_map(|id| period_map.remove(&id))
+            .filter_map(|id| period_map.remove(&id))
             .collect();
         
         Ok(periods)

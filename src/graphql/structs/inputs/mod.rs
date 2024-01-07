@@ -1,6 +1,12 @@
+#[allow(clippy::module_name_repetitions)]
 pub mod teacher_name;
+
+#[allow(clippy::module_name_repetitions)]
 pub mod teacher;
+
+#[allow(clippy::module_name_repetitions)]
 pub mod pronoun_set;
+
 
 pub use {
     teacher_name::{ GraphQlHonorific, GraphQlMiddleName, GraphQlTeacherName },

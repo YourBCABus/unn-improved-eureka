@@ -174,10 +174,10 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
         honorific,
     );
 
-    let add_teacher = query(r#"
+    let add_teacher = query(r"
         INSERT INTO teachers (id, pronouns)
         VALUES ($1, $2);
-    "#);
+    ");
 
 
     ctx.transaction(|txn| Box::pin(async move {
@@ -252,11 +252,11 @@ pub async fn update_teacher_pronouns(ctx: &mut Ctx, id: Uuid, pronouns: PronounS
     );
 
     let update_teacher_id = query(
-        r#"
+        r"
             UPDATE teachers 
             SET pronouns = $2
             WHERE id = $1;
-        "#
+        "
     );
 
 
