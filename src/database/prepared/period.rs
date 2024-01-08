@@ -2,6 +2,7 @@ use sqlx::query_as;
 use uuid::Uuid;
 
 use super::super::Ctx;
+use super::prepared_query;
 use crate::types::Period;
 
 
@@ -50,12 +51,8 @@ pub async fn get_all_periods(ctx: &mut Ctx) -> Result<Vec<Period>, sqlx::Error> 
     get_all_periods_query.fetch_all(&mut **ctx).await
 }
 
-
-struct Id { id: Uuid }
-
 pub async fn create_period(ctx: &mut Ctx, name: &str, time_range: [f64; 2]) -> Result<Period, sqlx::Error> {
-    let add_period = query_as!(
-        Id,
+    let add_period = prepared_query!(
         r#"
             INSERT INTO periods (id, name, start_time, end_time)
             VALUES (
@@ -63,60 +60,65 @@ pub async fn create_period(ctx: &mut Ctx, name: &str, time_range: [f64; 2]) -> R
                 TIME '00:00' + $2 * INTERVAL '1 second',
                 TIME '00:00' + $3 * INTERVAL '1 second'
             ) RETURNING id AS "id: _";
-        "#,
+        "#;
+        { id: Uuid };
         name,
         time_range[0], time_range[1],
     );
     
-    let Id { id } = add_period.fetch_one(&mut **ctx).await?;
+    let id = add_period.fetch_one(&mut **ctx).await?.id;
 
     get_period(ctx, id).await
 }
 
 pub async fn update_period_name(ctx: &mut Ctx, id: Uuid, name: &str) -> sqlx::Result<Period> {
-    let update_name = query_as!(
-        Id,
-        r#"
+    let update_name = prepared_query!(
+        r"
             UPDATE periods
             SET name = $2
             WHERE id = $1;
-        "#,
+        ";
+        {  };
         id,
-        name,
+        name
     );
+
     update_name.execute(&mut **ctx).await?;
     get_period(ctx, id).await
 }    
+
 pub async fn update_period_time(ctx: &mut Ctx, id: Uuid, time_range: [f64; 2]) -> sqlx::Result<Period> {
-    let update_time = query_as!(
-        Id,
-        r#"
+    let update_time = prepared_query!(
+        r"
             UPDATE periods
             SET
                 start_time = TIME '00:00' + $2 * INTERVAL '1 second',
                 end_time = TIME '00:00' + $3 * INTERVAL '1 second'
             WHERE id = $1;
-        "#,
+        ";
+        {  };
         id,
         time_range[0], time_range[1],
     );
+    
     update_time.execute(&mut **ctx).await?;
     get_period(ctx, id).await
 }
 
 pub async fn set_period_temp_time(ctx: &mut Ctx, id: Uuid, temp_time_range: [f64; 2]) -> sqlx::Result<Period> {
-    let update_temp_time = query_as!(
-        Id,
-        r#"
+    let update_temp_time = prepared_query!(
+        r"
             UPDATE periods
             SET
                 temp_start = TIME '00:00' + $2 * INTERVAL '1 second',
                 temp_end = TIME '00:00' + $3 * INTERVAL '1 second'
             WHERE id = $1;
-        "#,
+        ";
+        {  };
         id,
         temp_time_range[0], temp_time_range[1],
     );
+    
     update_temp_time.execute(&mut **ctx).await?;
     get_period(ctx, id).await
 }

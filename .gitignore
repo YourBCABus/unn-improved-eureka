@@ -1,10 +1,20 @@
+# Cargo Artifacts
 /target
 Cargo.lock
+
+# Generated Files
 schema.graphql
-output.json
+
+# Testing things
 test.js
 *.sql
+output.json
+
 !sql_schemas/**/*.sql
-.env
+
 *.log
+.env
+
+# Other cargo/rustc stuff
 .cargo/config
+rustc-ice-*.txt

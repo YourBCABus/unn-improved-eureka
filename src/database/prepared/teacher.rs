@@ -3,6 +3,7 @@ use sqlx::{ query, query_as, Connection };
 use uuid::Uuid;
 
 use super::super::Ctx;
+use super::prepared_query;
 use crate::types::{Teacher, TeacherName, PronounSet, Honorific};
 
 
@@ -120,7 +121,6 @@ pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error
 
 
 
-struct Id { id: Uuid }
 
 pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sqlx::Error> {
     let PronounSet {
@@ -131,8 +131,7 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
 
     let id = input.get_id();
 
-    let add_pronoun_set = query_as!(
-        Id,
+    let add_pronoun_set = prepared_query!(
         r#"
             INSERT INTO pronoun_sets (
                 id,
@@ -145,12 +144,12 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
                     ON CONSTRAINT nopronounsetduplicates
                     DO UPDATE SET id = pronoun_sets.id
                 RETURNING id AS "id: _";
-        "#,
+        "#;
+        { id: Uuid };
         sub, obj,
         pos_adj, pos_pro,
         refx, gramm_plu,
     );
-    
 
     let first = input.get_name().get_first();
     let last = input.get_name().get_last();
@@ -231,8 +230,8 @@ pub async fn update_teacher_pronouns(ctx: &mut Ctx, id: Uuid, pronouns: PronounS
         refx, gramm_plu,
     } = pronouns;
 
-    let add_pronoun_set = query_as!(
-        Id,
+
+    let add_pronoun_set = prepared_query!(
         r#"
             INSERT INTO pronoun_sets (
                 id,
@@ -245,7 +244,8 @@ pub async fn update_teacher_pronouns(ctx: &mut Ctx, id: Uuid, pronouns: PronounS
                     ON CONSTRAINT nopronounsetduplicates
                     DO UPDATE SET id = pronoun_sets.id
                 RETURNING id AS "id: _";
-        "#,
+        "#;
+        { id: Uuid };
         sub, obj,
         pos_adj, pos_pro,
         refx, gramm_plu,
@@ -290,22 +290,22 @@ pub async fn update_teacher_full_absence(ctx: &mut Ctx, id: Uuid, fully_absent: 
 
 
 pub async fn get_teacher_by_oauth(ctx: &mut Ctx, provider: String, sub: String) -> Result<Teacher, sqlx::Error> {
-    let teacher_oauth_query = query_as!(
-        Id,
+    let teacher_oauth_query = prepared_query!(
         r#"
             SELECT teacher as id
             FROM teacher_oauths
             WHERE
                 provider = $1 AND
                 sub = $2;
-        "#,
+        "#;
+        { id: Uuid };
         provider,
         sub,
     );
 
-    let teacher_id: Id = teacher_oauth_query.fetch_one(&mut **ctx).await?;
+    let teacher_id = teacher_oauth_query.fetch_one(&mut **ctx).await?.id;
 
-    get_teacher(ctx, teacher_id.id).await
+    get_teacher(ctx, teacher_id).await
 }
 pub async fn check_teacher_oauth(ctx: &mut Ctx, id: Uuid, provider: String, sub: String) -> Result<bool, sqlx::Error> {
     let get_sub_query = query!(

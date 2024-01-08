@@ -9,3 +9,25 @@ pub mod future_absences;
 pub mod privileges;
 
 pub mod clients;
+
+macro_rules! prepared_query {
+    (
+        $query_text:literal;
+        $($($lifetimes:lifetime),+)? { $($name:ident: $type:ty),* $(,)? };
+        $($vars:expr),* $(,)?
+    ) => {
+        {
+            #[allow(dead_code)]
+            struct QueryResult$(<$($lifetimes),+>)? {
+                $($name: $type),*
+            }
+    
+            sqlx::query_as!(
+                QueryResult,
+                $query_text,
+                $($vars),*
+            )
+        }
+    };
+}
+pub (crate) use prepared_query;
