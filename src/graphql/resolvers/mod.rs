@@ -31,3 +31,42 @@ macro_rules! get_db {
     };
 }
 pub (crate) use get_db;
+
+macro_rules! run_query {
+    (
+        $db_conn:ident.$query_name:ident
+        ($($var:expr),*$(,)?)
+        else
+            ($req_id:expr)
+            $fmt_str:tt $(, $($fmt_args:expr),+ $(,)?)?
+    ) => {
+        $crate::graphql::resolvers::run_query!(
+            $db_conn.($query_name)
+            ($($var),*)
+
+            else
+                ($req_id)
+                $fmt_str $(, $($fmt_args),+)?
+        )
+    };
+    (
+        $db_conn:ident.($query_name:expr)
+        ($($var:expr),*$(,)?)
+        else
+            ($req_id:expr)
+            $fmt_str:tt $(, $($fmt_args:expr),+ $(,)?)?
+    ) => {
+        ($query_name)(&mut $db_conn, $($var),*)
+            .await
+            .map_err(|e| {
+                let e = e.to_string();
+                $crate::logging::error!(
+                    "{} - {}",
+                    $crate::logs_env::logging::fmt_req_id($req_id),
+                    format_args!($fmt_str, $($($fmt_args,)+)? e),
+                );
+                GraphQlError::new(format!($fmt_str, $($($fmt_args,)+)? e))
+            })
+    };
+}
+pub (crate) use run_query;

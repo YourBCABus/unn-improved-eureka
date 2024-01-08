@@ -8,13 +8,14 @@
 
 use crate::database::prepared::privileges::get_privileges;
 
+use crate::graphql::req_id;
 use crate::types::Privileges;
 use crate::types::Teacher;
 use crate::types::Period;
 use crate::types::PackedAbsenceState;
 use crate::types::TeacherAbsenceStateList;
 
-use super::get_db;
+use super::{ get_db, run_query };
 
 use async_graphql::{
     Object,
@@ -66,7 +67,6 @@ impl QueryRoot {
         use crate::database::prepared::teacher::get_all_teachers as get_all_teachers_from_db;        
 
         let mut db_conn = get_db!(ctx);
-            
 
         get_all_teachers_from_db(&mut db_conn)
             .await
@@ -90,12 +90,10 @@ impl QueryRoot {
 
         let mut db_conn = get_db!(ctx);
 
-        get_teacher_by_oauth_from_db(&mut db_conn, provider, sub)
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Failed to get teacher from database {e}"))
-            })
+        run_query!(
+            db_conn.get_teacher_by_oauth_from_db(provider, sub)
+            else (req_id(ctx)) "Failed to get teacher from database: {}"
+        )
     }
 
     async fn get_teacher_futures(
@@ -112,19 +110,18 @@ impl QueryRoot {
 
         let mut db_conn = get_db!(ctx);
 
-        let oauth_res = check_oauth_db(&mut db_conn, id, provider, sub)
-            .await
-            .map_err(|_| GraphQlError::new("Not permitted to access this resource"))?;
+        let oauth_res = run_query!(
+            db_conn.check_oauth_db(id, provider, sub)
+            else (req_id(ctx)) "Not permitted to access this resource {:.0}"
+        )?;
         if !oauth_res {
             return Err(GraphQlError::new("Not permitted to access this resource"));
         }
 
-        get_futures_from_db(&mut db_conn, id, start, end)
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Failed to get teacher absence data from database {e}"))
-            })
+        run_query!(
+            db_conn.get_futures_from_db(id, start, end)
+            else (req_id(ctx)) "Failed to get teacher future absence data from database: {}"
+        )
     }
     async fn get_all_teacher_futures(
         &self,
@@ -139,26 +136,23 @@ impl QueryRoot {
 
         let mut db_conn = get_db!(ctx);
 
-
-        let teacher = get_teacher_db(&mut db_conn, provider.clone(), sub.clone())
-            .await
-            .map_err(|_| GraphQlError::new("This oauth user doesn't exist"))?;
-
-        let teacher_perms = get_privileges(&mut db_conn, teacher.get_id())
-            .await
-            .map_err(|_| GraphQlError::new("Not permitted to access this resource"))?;
+        let teacher = run_query!(
+            db_conn.get_teacher_db(provider.clone(), sub.clone())
+            else (req_id(ctx)) "This oauth user doesn't exist {:.0}"
+        )?;
+        let teacher_perms = run_query!(
+            db_conn.get_privileges(teacher.get_id())
+            else (req_id(ctx)) "Not permitted to access this resource {:.0}"
+        )?;
 
         if !teacher_perms.secretary && !teacher_perms.admin {
             return Err(GraphQlError::new("Not permitted to access this resource"));
         }
 
-
-        get_all_futures_from_db(&mut db_conn, start, end)
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Failed to get teacher absence data from database {e}"))
-            })
+        run_query!(
+            db_conn.get_all_futures_from_db(start, end)
+            else (req_id(ctx)) "Failed to get teacher absence data from database: {}"
+        )
     }
 
     async fn all_periods(
@@ -168,7 +162,6 @@ impl QueryRoot {
         use crate::database::prepared::period::get_all_periods as get_all_periods_from_db;        
         
         let mut db_conn = get_db!(ctx);
-            
 
         get_all_periods_from_db(&mut db_conn)
             .await
@@ -196,17 +189,15 @@ impl QueryRoot {
 
         let mut db_conn = get_db!(ctx);
 
-
-        let teacher = get_teacher_db(&mut db_conn, provider.clone(), sub.clone())
-            .await
-            .map_err(|_| GraphQlError::new("This oauth user doesn't exist"))?;
+        let teacher = run_query!(
+            db_conn.get_teacher_db(provider.clone(), sub.clone())
+            else (req_id(ctx)) "This oauth user doesn't exist {:.0}"
+        )?;
         
-        get_privs_from_db(&mut db_conn, teacher.get_id())
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Failed to get permissions for oauth user {e}"))
-            })
+        run_query!(
+            db_conn.get_privs_from_db(teacher.get_id())
+            else (req_id(ctx)) "Failed to get permissions for oauth user: {}"
+        )
     }
 
     async fn curr_spreadsheet_id(
@@ -217,12 +208,10 @@ impl QueryRoot {
 
         let mut db_conn = get_db!(ctx);
 
-        get_sheet_id_from_db(&mut db_conn)
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                GraphQlError::new(format!("Failed to get teacher from database {e}"))
-            })
+        run_query!(
+            db_conn.get_sheet_id_from_db()
+            else (req_id(ctx)) "Failed to get teacher from database: {}"
+        )
     }
 }
 

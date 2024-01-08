@@ -13,7 +13,8 @@ use crate::types::{Period, Teacher};
 use crate::database::Ctx;
 use crate::logging::*;
 
-use super::{TimeRange, get_db};
+use super::TimeRange;
+use super::get_db;
 
 #[Object]
 impl Period {
