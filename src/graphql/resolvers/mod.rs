@@ -65,7 +65,7 @@ macro_rules! run_query {
                     $crate::logs_env::logging::fmt_req_id($req_id),
                     format_args!($fmt_str, $($($fmt_args,)+)? e),
                 );
-                GraphQlError::new(format!($fmt_str, $($($fmt_args,)+)? e))
+                async_graphql::Error::new(format!($fmt_str, $($($fmt_args,)+)? e))
             })
     };
 }

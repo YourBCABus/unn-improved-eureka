@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE config\n                SET report_to = $1;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d6e61cf015dea87d0337252872185433a92e4e4ccc265f49be10c1ea34ae176c"
+}

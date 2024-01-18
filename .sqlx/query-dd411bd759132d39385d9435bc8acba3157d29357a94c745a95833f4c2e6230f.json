@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE periods\n            SET temp_start = null, temp_end = null\n            WHERE id = $1;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dd411bd759132d39385d9435bc8acba3157d29357a94c745a95833f4c2e6230f"
+}

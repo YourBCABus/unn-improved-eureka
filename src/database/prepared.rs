@@ -9,6 +9,7 @@ pub mod future_absences;
 pub mod privileges;
 
 pub mod clients;
+pub mod config;
 
 macro_rules! prepared_query {
     (

@@ -204,17 +204,27 @@ impl QueryRoot {
         &self,
         ctx: &Context<'_>,
     ) -> GraphQlResult<String> {
-        use crate::database::prepared::clients::get_sheet_id as get_sheet_id_from_db;
+        use crate::database::prepared::config::get_sheet_id as get_sheet_id_from_db;
 
         let mut db_conn = get_db!(ctx);
 
         run_query!(
             db_conn.get_sheet_id_from_db()
-            else (req_id(ctx)) "Failed to get teacher from database: {}"
+            else (req_id(ctx)) "Failed to get spreadsheet id from database: {}"
+        )
+    }
+
+    async fn curr_report_to(
+        &self,
+        ctx: &Context<'_>,
+    ) -> GraphQlResult<String> {
+        use crate::database::prepared::config::get_report_to as get_report_to_from_db;
+
+        let mut db_conn = get_db!(ctx);
+
+        run_query!(
+            db_conn.get_report_to_from_db()
+            else (req_id(ctx)) "Failed to get \"report to\" location from database: {}"
         )
     }
 }
-
-
-
-

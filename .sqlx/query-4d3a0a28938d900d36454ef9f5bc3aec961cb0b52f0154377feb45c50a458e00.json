@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE periods\n            SET temp_start = null, temp_end = null;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "4d3a0a28938d900d36454ef9f5bc3aec961cb0b52f0154377feb45c50a458e00"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE config\n                SET sheet_id = $1;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5960c2286ca25d7dd841c502ae7f7271c2f1adf12f919f6a2f5c9d095e653316"
+}

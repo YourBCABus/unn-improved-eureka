@@ -123,3 +123,31 @@ pub async fn set_period_temp_time(ctx: &mut Ctx, id: Uuid, temp_time_range: [f64
     get_period(ctx, id).await
 }
 
+pub async fn clear_period_temp_time(ctx: &mut Ctx, id: Uuid) -> sqlx::Result<Period> {
+    let update_temp_time = prepared_query!(
+        r"
+            UPDATE periods
+            SET temp_start = null, temp_end = null
+            WHERE id = $1;
+        ";
+        {  };
+        id,
+    );
+    
+    update_temp_time.execute(&mut **ctx).await?;
+    get_period(ctx, id).await
+}
+
+pub async fn flush_all_temp_times(ctx: &mut Ctx) -> sqlx::Result<()> {
+    let flush_temp_times = prepared_query!(
+        r"
+            UPDATE periods
+            SET temp_start = null, temp_end = null;
+        ";
+        {  };
+    );
+    
+    flush_temp_times.execute(&mut **ctx).await?;
+    Ok(())
+}
+

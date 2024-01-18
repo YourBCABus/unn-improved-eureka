@@ -1,12 +1,14 @@
-//! This module contains solely the [`MutationRoot`] struct.
-//! It only exists for organizational purposes.
+mod futures;
+mod global;
+mod oauth;
+mod period_management;
+mod teacher_management;
 
 use async_graphql::{
     Object,
 
     Context,
     Result as GraphQlResult,
-    Error as GraphQlError,
 };
 use chrono::NaiveDate;
 use uuid::Uuid;
@@ -33,15 +35,16 @@ macro_rules! ensure_auth {
             let client_secret = $ctx.data::<ClientSecretHeader>();
 
             let (Ok(client_id), Ok(client_secret)) = (client_id, client_secret) else {
-                return Err(GraphQlError::new("Unauthorized"));
+                return Err(async_graphql::Error::new("Unauthorized"));
             };
 
             if !client_allowed(client_id.unwrap(), client_secret.as_bytes(), $db_conn).await {
-                return Err(GraphQlError::new("Unauthorized"));
+                return Err(async_graphql::Error::new("Unauthorized"));
             }
         }
     };
 }
+pub (crate) use ensure_auth;
 
 /// This is a memberless struct implementing all the mutations for `improved-eureka`.
 /// This includes:
@@ -60,22 +63,7 @@ impl MutationRoot {
         name: GraphQlTeacherName,
         pronouns: GraphQlPronounSet,
     ) -> GraphQlResult<Teacher> {
-        use crate::database::prepared::teacher::create_teacher as add_teacher_to_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        let teacher = Teacher::new(
-            uuid::Uuid::new_v4(),
-            name.into(),
-            pronouns.into(),
-        );
-        let teacher_id = teacher.get_id();
-
-        run_query!(
-            db_conn.add_teacher_to_db(teacher)
-            else (req_id(ctx)) "Failed to add teacher under ID {teacher_id}: {}"
-        )
+        teacher_management::add_teacher(ctx, name, pronouns).await
     }
     
     async fn update_teacher_name(
@@ -84,15 +72,7 @@ impl MutationRoot {
         id: Uuid,
         name: GraphQlTeacherName,
     ) -> GraphQlResult<Teacher> {
-        use crate::database::prepared::teacher::update_teacher_name as update_teacher_name_in_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.update_teacher_name_in_db(id, name.into())
-            else (req_id(ctx)) "Failed to update name of teacher {id}: {}"
-        )
+        teacher_management::update_teacher_name(ctx, id, name).await
     }
 
     async fn update_teacher_pronouns(
@@ -101,15 +81,7 @@ impl MutationRoot {
         id: Uuid,
         pronouns: GraphQlPronounSet,
     ) -> GraphQlResult<Teacher> {
-        use crate::database::prepared::teacher::update_teacher_pronouns as update_teacher_pronouns_in_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.update_teacher_pronouns_in_db(id, pronouns.into())
-            else (req_id(ctx)) "Failed to update pronouns of teacher {id}: {}"
-        )
+        teacher_management::update_teacher_pronouns(ctx, id, pronouns).await
     }
     
     async fn update_teacher_absence(
@@ -141,19 +113,7 @@ impl MutationRoot {
         provider: String,
         sub: String,
     ) -> GraphQlResult<Teacher> {
-        use crate::database::prepared::teacher::add_teacher_oauth as add_teacher_associated_oauth_in_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.add_teacher_associated_oauth_in_db(id, provider.clone(), sub)
-            else (req_id(ctx)) "Failed to add {provider} oauth for teacher {id}: {}"
-        )?;
-        run_query!(
-            db_conn.get_teacher(id)
-            else (req_id(ctx)) "Failed to refetch updated teacher {id}: {}"
-        )
+        oauth::add_teacher_associated_oauth(ctx, id, provider, sub).await
     }
 
     async fn remove_teacher_associated_oauth(
@@ -162,19 +122,7 @@ impl MutationRoot {
         id: Uuid,
         provider: String,
     ) -> GraphQlResult<Teacher> {
-        use crate::database::prepared::teacher::remove_teacher_oauth as remove_teacher_associated_oauth_in_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.remove_teacher_associated_oauth_in_db(id, provider.clone())
-            else (req_id(ctx)) "Failed to remove {provider} oauth for teacher {id}: {}"
-        )?;
-        run_query!(
-            db_conn.get_teacher(id)
-            else (req_id(ctx)) "Failed to refetch updated teacher {id}: {}"
-        )
+        oauth::remove_teacher_associated_oauth(ctx, id, provider).await
     }
 
 
@@ -189,20 +137,11 @@ impl MutationRoot {
         fully_absent: bool,
         comment: Option<String>,
     ) -> GraphQlResult<bool> {
-        use crate::database::prepared::future_absences::set_future_day as set_future_absence_in_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.set_future_absence_in_db(
-                start, end.unwrap_or(start), id,
-                &periods, fully_absent, comment,
-            )
-            else (req_id(ctx)) "Failed to set future absence in the database for teacher {id}: {}"
-        )?;
-        
-        Ok(true)
+        futures::set_teacher_future_absence(
+            ctx,
+            start, end, id,
+            periods, fully_absent, comment,
+        ).await
     }
 
     async fn clear_teacher_future_absence(
@@ -212,52 +151,33 @@ impl MutationRoot {
         end: Option<NaiveDate>,
         id: Uuid,
     ) -> GraphQlResult<bool> {
-        use crate::database::prepared::future_absences::clear_future_day as clear_future_absence_in_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.clear_future_absence_in_db(start, end.unwrap_or(start), id)
-            else (req_id(ctx)) "Failed to clear future absence in the database for teacher {id}: {}"
-        )?;
-        
-        Ok(true)
+        futures::clear_teacher_future_absence(
+            ctx,
+            start, end, id,
+        ).await
     }
 
     async fn sync_and_flush_futures(
         &self,
         ctx: &Context<'_>,
     ) -> GraphQlResult<bool> {
-        use crate::database::prepared::future_absences::flush_today as sync_and_flush_in_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.sync_and_flush_in_db()
-            else (req_id(ctx)) "Failed in syncing and flushing futures at {}: {}", chrono::Utc::now().to_rfc2822()
-        )?;
-        
-        Ok(true)
+        futures::sync_and_flush_futures(ctx).await
     }
 
+    // Global config/settings
     async fn set_spreadsheet_id(
         &self,
         ctx: &Context<'_>,
         id: String,
     ) -> GraphQlResult<bool> {
-        use crate::database::prepared::clients::set_sheet_id as set_sheet_id_in_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.set_sheet_id_in_db(&id)
-            else (req_id(ctx)) "Database error: {}"
-        )?;
-        
-        Ok(true)
+        global::set_spreadsheet_id(ctx, id).await
+    }
+    async fn set_report_to(
+        &self,
+        ctx: &Context<'_>,
+        report_to: String,
+    ) -> GraphQlResult<bool> {
+        global::set_report_to(ctx, report_to).await
     }
 
 
@@ -282,15 +202,7 @@ impl MutationRoot {
         name: String,
         default_time: TimeRangeInput,
     ) -> GraphQlResult<Period> {
-        use crate::database::prepared::period::create_period as add_period_to_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.add_period_to_db(&name, [default_time.start, default_time.end])
-            else (req_id(ctx)) "Database error: {}"
-        )
+        period_management::add_period(ctx, name, default_time).await
     }
 
     async fn update_period_name(
@@ -300,17 +212,8 @@ impl MutationRoot {
         id: Uuid,
         name: String,
     ) -> GraphQlResult<Period> {
-        use crate::database::prepared::period::update_period_name as update_period_name_in_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.update_period_name_in_db(id, &name)
-            else (req_id(ctx)) "Database error: {}"
-        )
+        period_management::update_period_name(ctx, id, name).await
     }
-
     async fn update_period_time(
         &self,
         ctx: &Context<'_>,
@@ -318,15 +221,7 @@ impl MutationRoot {
         id: Uuid,
         time: TimeRangeInput,
     ) -> GraphQlResult<Period> {
-        use crate::database::prepared::period::update_period_time as update_period_time_in_db;
-
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.update_period_time_in_db(id, [time.start, time.end])
-            else (req_id(ctx)) "Failed to get : {}"
-        )
+        period_management::update_period_time(ctx, id, time).await
     }
     async fn set_period_temp_time(
         &self,
@@ -335,15 +230,22 @@ impl MutationRoot {
         id: Uuid,
         temp_time: TimeRangeInput,
     ) -> GraphQlResult<Period> {
-        use crate::database::prepared::period::set_period_temp_time as set_period_temp_time_in_db;
+        period_management::set_period_temp_time(ctx, id, temp_time).await
+    }
+    async fn clear_period_temp_time(
+        &self,
+        ctx: &Context<'_>,
 
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
-
-        run_query!(
-            db_conn.set_period_temp_time_in_db(id, [temp_time.start, temp_time.end])
-            else (req_id(ctx)) "Database error: {}"
-        )
+        id: Uuid,
+    ) -> GraphQlResult<Period> {
+        period_management::clear_period_temp_time(ctx, id).await
+    }
+    async fn clear_all_temp_times(
+        &self,
+        ctx: &Context<'_>,
+    ) -> GraphQlResult<bool> {
+        period_management::clear_all_temp_times(ctx).await?;
+        Ok(true)
     }
 
     // async fn delete_period(

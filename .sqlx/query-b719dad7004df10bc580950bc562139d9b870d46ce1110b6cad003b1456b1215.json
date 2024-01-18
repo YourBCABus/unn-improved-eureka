@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                secretary,\n                admin\n            FROM privileges\n            WHERE teacher_id = $1;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "secretary",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 1,
+        "name": "admin",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "b719dad7004df10bc580950bc562139d9b870d46ce1110b6cad003b1456b1215"
+}
