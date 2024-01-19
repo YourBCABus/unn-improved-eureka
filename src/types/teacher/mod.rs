@@ -24,9 +24,13 @@ impl Honorific {
             "dr" | "doctor" => Some(Self::Dr),
             "mrs" | "missus" => Some(Self::Mrs),
             
-            "mr dr" | "mister doctor" => Some(Self::MrDr),
-            "ms dr" | "mrs dr" | "miss doctor" | "missus doctor" => Some(Self::MsDr),
-            "mx dr" | "mix doctor" => Some(Self::MxDr),
+            "mr dr" | "mr. dr" | "mister doctor" => Some(Self::MrDr),
+            
+            | "ms dr" | "ms. dr"
+            | "mrs dr" | "mrs. dr"
+            | "miss doctor" | "missus doctor" => Some(Self::MsDr),
+            
+            "mx dr" | "mx. dr" | "mix doctor" => Some(Self::MxDr),
 
             
             "prof" | "professor" => Some(Self::Prof),
