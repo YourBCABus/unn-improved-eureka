@@ -10,6 +10,7 @@ use self::pronouns::PronounSet;
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Honorific {
     Ms, Mx, Mr, Dr, Mrs, Prof,
+    MrDr, MsDr, MxDr,
     Sir, Dame,
     Madame, Mademoiselle, Monsieur,
     Profe, Señora, Señor, Señorita,
@@ -22,6 +23,11 @@ impl Honorific {
             "mr" | "mister" => Some(Self::Mr),
             "dr" | "doctor" => Some(Self::Dr),
             "mrs" | "missus" => Some(Self::Mrs),
+            
+            "mr dr" | "mister doctor" => Some(Self::MrDr),
+            "ms dr" | "mrs dr" | "miss doctor" | "missus doctor" => Some(Self::MsDr),
+            "mx dr" | "mix doctor" => Some(Self::MxDr),
+
             
             "prof" | "professor" => Some(Self::Prof),
             "sir" => Some(Self::Sir),
@@ -47,6 +53,10 @@ impl Honorific {
             Self::Dr => "Dr",
             Self::Mrs => "Mrs",
             Self::Prof => "Prof",
+
+            Self::MrDr => "Mr. Dr",
+            Self::MsDr => "Ms. Dr",
+            Self::MxDr => "Mx. Dr",
 
             Self::Sir => "Sir",
             Self::Dame => "Dame",
