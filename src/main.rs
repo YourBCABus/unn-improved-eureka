@@ -53,11 +53,6 @@ async fn get_setup() -> (actix_web::web::Data<Schema>, (&'static str, u16)) {
         sheets().unwrap();
     }
 
-    // TODO: Move this to a different binary at some point
-    // let client_secret = "placeholder thing";
-    // let client_id = uuid::uuid!("0000-0000-000000000000000jlsdnfukanlks.eluchmnaksef");
-    // println!("{}", improved_eureka::verification::id_secret::generate_client_keystr(client_secret.as_bytes()).unwrap());
-
 
     let db = connect_as("TableJet Improved Eureka").await;
     let db = unwrap_connection(db);
