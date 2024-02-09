@@ -227,4 +227,17 @@ impl QueryRoot {
             else (req_id(ctx)) "Failed to get \"report to\" location from database: {}"
         )
     }
+
+    async fn get_metrics(
+        &self,
+        ctx: &Context<'_>,
+    ) -> GraphQlResult<String> {
+        let metrics = ctx.data::<crate::state::AppState>()?.metrics();
+
+        if let Ok(output) = metrics.read(None).await {
+            Ok(output)
+        } else {
+            Err(GraphQlError::new("Failed to read metrics"))
+        }
+    }
 }

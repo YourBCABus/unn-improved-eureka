@@ -1,33 +1,30 @@
 use actix_web::web::Header;
-use actix_web::{HttpServer, web, HttpResponse, http::header::ContentType, Responder, App};
-use arcs_logging_rs::set_up_logging;
-
-
+use actix_web::{HttpServer, web, HttpResponse, http::header::ContentType, Responder};
 
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
-use improved_eureka::env::port_u16_panic;
 use improved_eureka::verification::{ClientSecretHeader, ClientIdHeader};
-use improved_eureka::{state::AppState, graphql::Schema};
-use improved_eureka::graphql::{schema, save_schema};
+use improved_eureka::graphql::Schema;
 
-use improved_eureka::database::{connect_as, unwrap_connection};
 use improved_eureka::logging::*;
+
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     info!("Server process started");
 
-    let (schema, bind_to) = get_setup().await;
+    let sender = setup::metrics();
 
-    let server = HttpServer::new(move || {
-        debug!("Server thread spun up");
-        App::new()
-            .app_data(schema.clone())
-            .service(graphql_handler)
-            .service(interactive)
-    })
-        .bind(bind_to)?
-        .run();
+    setup::env_and_logging();
+    let schema = setup::data(
+        Some("./schema.graphql"),
+        sender.clone(),
+    ).await;
+    let bind_to = setup::get_bind().await;
+
+
+    let server = HttpServer::new(
+        move || setup::app(schema.clone(), None, sender.clone())
+    ).bind(bind_to)?.run();
 
     let (result, _) = tokio::join!(
         server,
@@ -36,42 +33,6 @@ async fn main() -> std::io::Result<()> {
 
     result
 }
-
-/// This function does most of the "dirty work" of setting up the server.
-/// 
-/// It's here to keep the main function clean, and it also represents a
-/// separation of concerns in that it will reduce the data needed to run the
-/// server down to just 2 values.
-async fn get_setup() -> (actix_web::web::Data<Schema>, (&'static str, u16)) {
-    dotenvy::dotenv().unwrap();
-    set_up_logging(&arcs_logging_rs::DEFAULT_LOGGGING_TARGETS, "TableJet Improved Eureka").unwrap();
-
-    {
-        use improved_eureka::env::checks::*;
-        main().unwrap();
-        sql().unwrap();
-        sheets().unwrap();
-    }
-
-
-    let db = connect_as("TableJet Improved Eureka").await;
-    let db = unwrap_connection(db);
-    let ctx: AppState = AppState::new(db);
-    info!("Connected to db");
-
-    let schema = schema(ctx);
-    info!("Created schema");
-
-    save_schema(&schema, "./schema.graphql");
-
-
-    let ip = "0.0.0.0";
-    let port = port_u16_panic();
-    
-    (actix_web::web::Data::new(schema), (ip, port))
-}
-
-
 
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 
@@ -89,6 +50,7 @@ async fn graphql_handler(
     client_id: Option<Header<ClientIdHeader>>,
     client_secret: Option<Header<ClientSecretHeader>>,
 ) -> GraphQLResponse {    
+    
     let request = request.into_inner();
     let request = if let Some(id) = client_id {
         request.data(id.0)
@@ -124,3 +86,117 @@ async fn interactive() -> impl Responder {
         .content_type(ContentType::html())
         .body(html_response)
 }
+
+
+mod setup {
+    use improved_eureka::graphql::Schema;
+
+    /// This function sets up the environment using dotenvy and initializes the
+    /// logging system.
+    /// 
+    /// NOTE: We probably should more away from the ARCS thing at some point,
+    /// but it works for now.
+    pub fn env_and_logging() {
+        use arcs_logging_rs::set_up_logging;
+
+        dotenvy::dotenv().unwrap();
+        set_up_logging(&arcs_logging_rs::DEFAULT_LOGGGING_TARGETS, "TableJet Improved Eureka").unwrap();
+
+        {
+            use improved_eureka::env::checks::*;
+            main().unwrap();
+            sql().unwrap();
+        }
+    }
+
+    /// Gets and starts metrics monitoring
+    pub fn metrics() -> improved_eureka::metrics::MetricProducer {
+        let metrics = improved_eureka::metrics::ResponseTimeMetrics::default();
+        let sender = metrics.sender();
+        
+        metrics.spawn();
+
+        sender
+    }
+
+    /// Gets (and unwraps) the db pool connection
+    async fn db() -> sqlx::PgPool {
+        use improved_eureka::database::{ connect_as, unwrap_connection };
+
+        let db_conn = connect_as("TableJet Improved Eureka").await;
+        unwrap_connection(db_conn)
+    }
+
+    /// Gets the graphql schema (with the associated db context) for the server
+    fn schema(db: sqlx::PgPool, metrics: improved_eureka::metrics::MetricProducer) -> improved_eureka::graphql::Schema {
+        use improved_eureka::state::AppState;
+        use improved_eureka::graphql::schema;
+
+        let ctx: AppState = AppState::new(db, metrics);
+        schema(ctx)
+    }
+
+
+    /// This function gets a `Data<Schema>` struct, ready to be passed to
+    /// the application builder.
+    pub async fn data(
+        save_schema: Option<&str>,
+        metrics: improved_eureka::metrics::MetricProducer,
+    ) -> actix_web::web::Data<Schema> {
+        let db = db().await;
+        let schema = schema(db, metrics);
+        if let Some(path) = save_schema {
+            improved_eureka::graphql::save_schema(&schema, path);
+        }
+        actix_web::web::Data::new(schema)
+    }
+
+
+    /// This function does most of the "dirty work" of setting up the server.
+    /// 
+    /// It's here to keep the main function clean, and it also represents a
+    /// separation of concerns in that it will reduce the data needed to run the
+    /// server down to just 2 values.
+    pub async fn get_bind() -> (&'static str, u16) {
+        let ip = "0.0.0.0";
+        let port = improved_eureka::env::port_u16_panic();
+        
+        (ip, port)
+    }
+
+
+    pub fn default_cors() -> actix_cors::Cors {
+        actix_cors::Cors::default()
+            .allowed_origin("http://localhost:8080")
+            .allowed_origin("https://tbj.yourbcabus.com")
+            .allowed_methods(vec!["GET", "POST"])
+            .allow_any_header()
+    }
+
+
+    use actix_web::{ App, Error };
+    use actix_web::dev::{ ServiceFactory, ServiceRequest, ServiceResponse };
+    use actix_web::body::MessageBody;
+    use improved_eureka::metrics::{ MetricProducer, middleware::ResponseTimeRecorder };
+
+    /// This function creates an instance of an actix App
+    pub fn app(
+        schema: actix_web::web::Data<Schema>,
+        cors: Option<actix_cors::Cors>,
+        metrics: MetricProducer,
+    ) -> App<impl ServiceFactory<
+        ServiceRequest,
+        Response = ServiceResponse<impl MessageBody>,
+        Config = (),
+        Error = Error,
+        InitError = (),
+    >> {
+        actix_web::App::new()
+            .wrap(cors.unwrap_or_else(default_cors))
+            .wrap(ResponseTimeRecorder::new(metrics))
+            .app_data(schema)
+            .service(super::graphql_handler)
+            .service(super::interactive)
+    }
+}
+

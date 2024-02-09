@@ -138,22 +138,8 @@ pub mod env {
         );
     }
 
-    pub mod sheets {
-        use arcs_env_rs::*;
-
-        env_var_req!(SHEET_INTEGRATION_TOKEN -> TOKEN);
-        env_var_req!(SHEET_INTEGRATION_ID -> ID);
-
-        assert_req_env!(
-            check_env_vars:
-                TOKEN,
-                ID
-        );
-    }
-
     pub mod checks {
         pub use super::check_env_vars as main;
         pub use super::sql::check_env_vars as sql;
-        pub use super::sheets::check_env_vars as sheets;
     }
 }

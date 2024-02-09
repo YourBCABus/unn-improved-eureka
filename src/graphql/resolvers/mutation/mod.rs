@@ -248,6 +248,21 @@ impl MutationRoot {
         Ok(true)
     }
 
+    async fn clear_metrics(
+        &self,
+        ctx: &Context<'_>,
+    ) -> GraphQlResult<String> {
+        let mut db_conn = get_db!(ctx);
+        let metrics = ctx.data::<crate::state::AppState>()?.metrics();
+        ensure_auth!(ctx, db: &mut db_conn);
+
+        if metrics.clear(None).await.is_ok() {
+            Ok("Metrics cleared".to_string())
+        } else {
+            Err(async_graphql::Error::new("Failed to clear metrics"))
+        }
+    }
+
     // async fn delete_period(
     //     ctx: &Context,
     //     id: PeriodId,
