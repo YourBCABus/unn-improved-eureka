@@ -23,7 +23,6 @@ pub struct ResponseTimeMetrics {
 
 impl Metrics for ResponseTimeMetrics {
     fn mean(&self) -> f64 { self.rtm.mean() }
-    fn mean_without_outliers(&self, mads: f64) -> f64 { self.rtm.mean_without_outliers(mads) }
     fn percentile(&self, p: f64) -> f64 { self.rtm.percentile(p) }
     fn median(&self) -> f64 { self.rtm.median() }
     fn mode(&self) -> f64 { self.rtm.mode() }

@@ -2,8 +2,6 @@ use super::data::{ResponseTime, ResponseTimeMap};
 
 pub trait Metrics {
     fn mean(&self) -> f64;
-    
-    fn mean_without_outliers(&self, mads: f64) -> f64;
 
     fn median(&self) -> f64;
     fn mode(&self) -> f64;
@@ -40,27 +38,6 @@ impl Metrics for ResponseTimeMap {
     fn mean(&self) -> f64 {
         let sum: f64 = self.iter().map(|(k, v)| k.as_nanos() as f64 * v as f64).sum();
         let count: f64 = self.recorded() as f64;
-        sum / count
-    }
-    fn mean_without_outliers(&self, mads: f64) -> f64 {
-        let mad = self.mad();
-        let median = self.median();
-
-
-        let nonoutliers = self.iter()
-            .filter(|(k, v)|{
-                let diff = k.as_nanos() as f64 - median;
-                diff.abs() < mad * mads
-            });
-        
-        let (sum, count) = nonoutliers
-            .fold((0.0, 0.0), |(total, count), (k, v)| {
-                (
-                    total + k.as_nanos() as f64 * v as f64,
-                    count + v as f64,
-                )
-            });
-        
         sum / count
     }
     fn percentile(&self, p: f64) -> f64 {

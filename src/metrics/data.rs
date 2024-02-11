@@ -65,6 +65,8 @@ mod consts {
     pub const SEC100: u64 = SEC * 100;
 }
 
+// TODO: Figure out this whole mess
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimeUnit {
     Time1Nanos,
@@ -75,6 +77,8 @@ pub enum TimeUnit {
     Time10Secs,
 }
 
+// TODO: Figure out this whole mess
+#[allow(dead_code)]
 impl TimeUnit {
     pub fn as_nanos(&self) -> u64 {
         use TimeUnit::*;
@@ -127,7 +131,9 @@ impl ResponseTime {
     }
 
     pub fn from_nanos(time_in_nanos: u64) -> Self {
-        Self(time_in_nanos)
+        // Round to a microsecond 
+        // TODO: Maybe make this a little better
+        Self(time_in_nanos / 1000 * 1000)
     }
 }
 
