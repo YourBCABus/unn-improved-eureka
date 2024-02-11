@@ -9,28 +9,30 @@ use uuid::Uuid;
 
 #[Object]
 impl Teacher {
-    // async fn absence_state(&self) -> AbsenceStateMetadata {
-    //     AbsenceStateMetadata::from_id_and_meta(self.id.clone(), self.absence_state_meta)
-    // }
-
     async fn id(&self) -> Uuid {
         self.get_id()
     }
 
+    #[graphql(complexity = 3)]
     async fn pronouns(&self) -> &PronounSet {
         &self.get_pronouns()
     }
 
+    #[graphql(complexity = 3)]
     async fn name(&self) -> &TeacherName {
         self.get_name()
     }
 
+    // Assuming every teacher is out for an average of 5 periods per day (way
+    // overestimating for safety)
+    //
+    // Additionally adding an extra 5 for the complexity of the initial
+    // `PeriodList` query
+    #[graphql(complexity = 10 + 5 * child_complexity)]
     async fn absence(
         &self,
         ctx: &Context<'_>,
     ) -> GraphQlResult<Vec<Period>> {
-        // trace!("{} - Expanding {}'s {} current absence data", fmt_req_id(req_id(ctx)), self.get_name(), SmallId(Some("t"), req_id(ctx)));
-
         let mut db_conn = get_db!(ctx);
 
         let ids = PeriodList::get_by_teacher(self.get_id(), &mut db_conn)

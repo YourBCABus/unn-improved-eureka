@@ -84,6 +84,7 @@ pub mod env {
     use arcs_env_rs::*;
 
     env_var_req!(PORT);
+    env_var_req!(COMPLEXITY -> GRAPHQL_COMPLEXITY_LIMIT);
 
     /// Get the port to bind to from the environment variables
     /// 
@@ -103,9 +104,19 @@ pub mod env {
         port
     }
     
+    pub fn graphql_complexity_limit_usize_panic() -> usize {
+        let complexity = graphql_complexity_limit();
+        let Ok(complexity) = complexity.parse() else {
+            crate::logging::error!("Failed to parse graphql complexity as usize");
+            crate::logging::debug!("Complexity: {:#?}", complexity);
+            panic!("Failed to parse complexity as usize");
+        };
+        complexity
+    }
+    
     assert_req_env!(
         check_env_vars:
-            PORT
+            PORT, GRAPHQL_COMPLEXITY_LIMIT
     );
 
     pub mod sql {
@@ -124,17 +135,6 @@ pub mod env {
                 DB_NAME, // DB_PASS,
                 USERNAME,
                 DB_URL
-        );
-    }
-
-    pub mod notifications {
-        use arcs_env_rs::*;
-
-        env_var_req!(FCM_API_KEY -> FCM_API_KEY);
-
-        assert_req_env!(
-            check_env_vars:
-                FCM_API_KEY
         );
     }
 

@@ -18,7 +18,6 @@ use super::get_db;
 
 #[Object]
 impl Period {
-
     async fn id(&self) -> Uuid { self.id }
     async fn name(&self) -> &str { &self.name }
 
@@ -30,6 +29,12 @@ impl Period {
     }
 
 
+    // Assuming during every period, 1/10 of the teachers are out (way
+    // overestimating for safety) 
+    //
+    // Additionally adding an extra 10 for the complexity of the initial
+    // `TeacherList` query
+    #[graphql(complexity = 5 + 10 * child_complexity)]
     async fn teachers_absent(
         &self,
         ctx: &Context<'_>,

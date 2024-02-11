@@ -10,6 +10,7 @@ pub mod structs;
 pub mod resolvers;
 
 
+use crate::env::graphql_complexity_limit_usize_panic;
 use crate::state::AppState;
 
 use self::{
@@ -68,6 +69,7 @@ pub fn schema(app_state: AppState) -> Schema {
         EmptySubscription,
     )
         .data(app_state)
+        .limit_complexity(graphql_complexity_limit_usize_panic())
         .finish()
 }
 

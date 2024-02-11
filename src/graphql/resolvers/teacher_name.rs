@@ -15,12 +15,17 @@ enum FormatStyle {
 
 #[Object]
 impl TeacherName {
-    async fn honorific(&self) -> &str { self.get_honorific().str() }
-    
+    async fn honorific(&self) -> &str { self.get_honorific().str() }    
     async fn first(&self) -> &str { self.get_first() }
+
+    // Teacher will almost never even have middle names, so this isn't really
+    // relevant
+    #[graphql(complexity = 2)]
     async fn middles(&self) -> Vec<&str> { self.visible_middles().collect() }
+
     async fn last(&self) -> &str { self.get_last() }
 
+    #[graphql(complexity = 2)]
     async fn formatted(
         &self,
         format_style: FormatStyle
@@ -41,7 +46,12 @@ impl TeacherName {
         }
     }
 
+    #[graphql(complexity = 2)]
     async fn full(&self) -> String { self.longest() }
+
+    #[graphql(complexity = 2)]
     async fn first_last(&self) -> String { self.mid_len() }
+
+    #[graphql(complexity = 2)]
     async fn normal(&self) -> String { self.short() }
 }

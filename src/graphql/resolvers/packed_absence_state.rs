@@ -13,40 +13,21 @@ use crate::types::TeacherAbsenceStateList;
 
 #[Object]
 impl PackedAbsenceState {
-    async fn teacher_id(&self) -> Uuid {
-        self.teacher_id
-    }
+    async fn teacher_id(&self) -> Uuid { self.teacher_id }
 
-    async fn full(&self) -> bool {
-        self.fully
-    }
-    async fn fully(&self) -> bool {
-        self.fully
-    }
-    async fn fully_absent(&self) -> bool {
-        self.fully
-    }
+    async fn full(&self) -> bool { self.fully }
+    async fn fully(&self) -> bool { self.fully }
+    async fn fully_absent(&self) -> bool { self.fully }
+    async fn date(&self) -> NaiveDate { self.date }
+    async fn comments(&self) -> Option<&str> { self.comments.as_deref() }
 
-    async fn periods(&self) -> &[Arc<Period>] {
-        &self.periods
-    }
-
-    async fn date(&self) -> NaiveDate {
-        self.date
-    }
-
-    async fn comments(&self) -> Option<&str> {
-        self.comments.as_deref()
-    }
+    #[graphql(complexity = 5 * child_complexity)]
+    async fn periods(&self) -> &[Arc<Period>] { &self.periods }
 }
 
 #[Object]
 impl TeacherAbsenceStateList {
-    async fn id(&self) -> Uuid {
-        self.0
-    }
+    async fn id(&self) -> Uuid { self.0 }
 
-    async fn absences(&self) -> &[PackedAbsenceState] {
-        &self.1
-    }
+    async fn absences(&self) -> &[PackedAbsenceState] { &self.1 }
 }
