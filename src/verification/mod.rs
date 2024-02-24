@@ -13,6 +13,7 @@ use reqwest::header::{HeaderValue, InvalidHeaderValue, HeaderName};
 use uuid::Uuid;
 
 pub mod id_secret;
+pub mod scopes;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientSecretHeader(Vec<u8>);
@@ -49,7 +50,7 @@ impl TryIntoHeaderValue for ClientSecretHeader {
 pub struct ClientIdHeader(Uuid);
 
 impl ClientIdHeader {
-    pub fn unwrap(&self) -> Uuid {
+    pub fn inner(&self) -> Uuid {
         self.0
     }
 }

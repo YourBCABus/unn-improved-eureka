@@ -2,12 +2,14 @@ use uuid::Uuid;
 
 use crate::database::{self, Ctx};
 
-pub async fn client_allowed(client_id: Uuid, provided_secret: &[u8], ctx: &mut Ctx) -> bool {
+use super::scopes::Scopes;
+
+pub async fn client_allowed(client_id: Uuid, provided_secret: &[u8], ctx: &mut Ctx) -> Option<Scopes> {
     let Ok(Some(secret)) = database::prepared::clients::get_client_secret(ctx, client_id).await else {
-        return false;
+        return None;
     };
 
-    let Some((hash, salt)) = secret.rsplit_once(':') else { return false };
+    let (hash, salt) = secret.rsplit_once(':')?;
 
     let value_to_hash: Vec<u8> = provided_secret
         .iter()
@@ -19,7 +21,11 @@ pub async fn client_allowed(client_id: Uuid, provided_secret: &[u8], ctx: &mut C
 
     let test_hash = sha256::digest(value_to_hash);
 
-    constant_time_eq::constant_time_eq(test_hash.as_bytes(), hash.as_bytes())
+    if !constant_time_eq::constant_time_eq(test_hash.as_bytes(), hash.as_bytes()) {
+        return None;
+    }
+
+    database::prepared::clients::get_client_scopes(ctx, client_id).await.ok().flatten()
 }
 
 pub fn generate_client_keystr(secret: &[u8]) -> Option<String> {

@@ -15,7 +15,7 @@ use crate::types::Period;
 use crate::types::PackedAbsenceState;
 use crate::types::TeacherAbsenceStateList;
 
-use super::{ get_db, run_query };
+use super::{ get_db, run_query, ensure_auth };
 
 use async_graphql::{
     Object,
@@ -50,6 +50,8 @@ impl QueryRoot {
     ) -> GraphQlResult<Teacher> {
         use crate::database::prepared::teacher::get_teacher as get_teacher_from_db;
 
+        ensure_auth!(ctx, [read_teacher]);
+
         let mut db_conn = get_db!(ctx);
 
         get_teacher_from_db(&mut db_conn, id)
@@ -65,6 +67,8 @@ impl QueryRoot {
         ctx: &Context<'_>,
     ) -> GraphQlResult<Vec<Teacher>> {
         use crate::database::prepared::teacher::get_all_teachers as get_all_teachers_from_db;        
+
+        ensure_auth!(ctx, [read_teacher]);
 
         let mut db_conn = get_db!(ctx);
 
@@ -88,6 +92,8 @@ impl QueryRoot {
     ) -> GraphQlResult<Teacher> {
         use crate::database::prepared::teacher::get_teacher_by_oauth as get_teacher_by_oauth_from_db;
 
+        ensure_auth!(ctx, [read_teacher, admin, experimental]);
+
         let mut db_conn = get_db!(ctx);
 
         run_query!(
@@ -107,6 +113,8 @@ impl QueryRoot {
     ) -> GraphQlResult<Vec<PackedAbsenceState>> {
         use crate::database::prepared::future_absences::get_future_days_for_teacher as get_futures_from_db;
         use crate::database::prepared::teacher::check_teacher_oauth as check_oauth_db;
+
+        ensure_auth!(ctx, [read_teacher, admin, experimental]);
 
         let mut db_conn = get_db!(ctx);
 
@@ -134,6 +142,8 @@ impl QueryRoot {
         use crate::database::prepared::future_absences::get_all_future_days as get_all_futures_from_db;
         use crate::database::prepared::teacher::get_teacher_by_oauth as get_teacher_db;
 
+        ensure_auth!(ctx, [read_teacher, admin, experimental]);
+
         let mut db_conn = get_db!(ctx);
 
         let teacher = run_query!(
@@ -160,7 +170,9 @@ impl QueryRoot {
         ctx: &Context<'_>,
     ) -> GraphQlResult<Vec<Period>> {
         use crate::database::prepared::period::get_all_periods as get_all_periods_from_db;        
-        
+
+        ensure_auth!(ctx, [read_period]);
+
         let mut db_conn = get_db!(ctx);
 
         get_all_periods_from_db(&mut db_conn)
@@ -187,6 +199,8 @@ impl QueryRoot {
         use crate::database::prepared::privileges::get_privileges as get_privs_from_db;
         use crate::database::prepared::teacher::get_teacher_by_oauth as get_teacher_db;
 
+        ensure_auth!(ctx, [read_teacher, admin, experimental]);
+
         let mut db_conn = get_db!(ctx);
 
         let teacher = run_query!(
@@ -206,6 +220,8 @@ impl QueryRoot {
     ) -> GraphQlResult<String> {
         use crate::database::prepared::config::get_sheet_id as get_sheet_id_from_db;
 
+        ensure_auth!(ctx, [read_period, read_teacher, read_teacher_name, read_teacher_absence, read_teacher_pronouns]);
+
         let mut db_conn = get_db!(ctx);
 
         run_query!(
@@ -219,6 +235,8 @@ impl QueryRoot {
         ctx: &Context<'_>,
     ) -> GraphQlResult<String> {
         use crate::database::prepared::config::get_report_to as get_report_to_from_db;
+
+        ensure_auth!(ctx, [read_teacher, read_period]);
 
         let mut db_conn = get_db!(ctx);
 

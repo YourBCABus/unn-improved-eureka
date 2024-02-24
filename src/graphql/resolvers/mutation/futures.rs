@@ -3,7 +3,6 @@ use chrono::NaiveDate;
 use uuid::Uuid;
 
 
-use crate::graphql::resolvers::mutation::ensure_auth;
 use crate::graphql::resolvers::{get_db, run_query};
 use crate::graphql::req_id;
 
@@ -23,7 +22,6 @@ pub async fn set_teacher_future_absence(
     use crate::database::prepared::future_absences::set_future_day as set_future_absence_in_db;
 
     let mut db_conn = get_db!(ctx);
-    ensure_auth!(ctx, db: &mut db_conn);
 
     run_query!(
         db_conn.set_future_absence_in_db(
@@ -45,7 +43,6 @@ pub async fn clear_teacher_future_absence(
     use crate::database::prepared::future_absences::clear_future_day as clear_future_absence_in_db;
 
     let mut db_conn = get_db!(ctx);
-    ensure_auth!(ctx, db: &mut db_conn);
 
     run_query!(
         db_conn.clear_future_absence_in_db(start, end.unwrap_or(start), id)
@@ -61,7 +58,6 @@ pub async fn sync_and_flush_futures(
     use crate::database::prepared::future_absences::flush_today as sync_and_flush_in_db;
 
     let mut db_conn = get_db!(ctx);
-    ensure_auth!(ctx, db: &mut db_conn);
 
     run_query!(
         db_conn.sync_and_flush_in_db()

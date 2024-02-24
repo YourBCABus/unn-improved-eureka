@@ -2,7 +2,6 @@ use async_graphql::Context;
 use uuid::Uuid;
 
 
-use crate::graphql::resolvers::mutation::ensure_auth;
 use crate::graphql::resolvers::{get_db, run_query};
 use crate::graphql::req_id;
 
@@ -20,7 +19,6 @@ pub async fn add_teacher_associated_oauth(
     use crate::database::prepared::teacher::get_teacher as get_teacher_from_db;
 
     let mut db_conn = get_db!(ctx);
-    ensure_auth!(ctx, db: &mut db_conn);
 
     run_query!(
         db_conn.add_teacher_associated_oauth_in_db(id, provider.clone(), sub)
@@ -41,7 +39,6 @@ pub async fn remove_teacher_associated_oauth(
     use crate::database::prepared::teacher::get_teacher as get_teacher_from_db;
 
     let mut db_conn = get_db!(ctx);
-    ensure_auth!(ctx, db: &mut db_conn);
 
     run_query!(
         db_conn.remove_teacher_associated_oauth_in_db(id, provider.clone())

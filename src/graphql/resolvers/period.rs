@@ -14,7 +14,7 @@ use crate::database::Ctx;
 use crate::logging::*;
 
 use super::TimeRange;
-use super::get_db;
+use super::{ get_db, ensure_auth };
 
 #[Object]
 impl Period {
@@ -39,6 +39,8 @@ impl Period {
         &self,
         ctx: &Context<'_>,
     ) -> GraphQlResult<Vec<Teacher>> {
+        ensure_auth!(ctx, [read_teacher, read_teacher_absence]);
+
         let mut db_conn = get_db!(ctx);
         let req_id = req_id(ctx);
 

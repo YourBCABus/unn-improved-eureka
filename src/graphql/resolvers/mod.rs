@@ -70,3 +70,18 @@ macro_rules! run_query {
     };
 }
 pub (crate) use run_query;
+
+
+macro_rules! ensure_auth {
+    ($ctx:ident, [$($scopes:ident),+]) => {
+        {
+            let scopes = $crate::graphql::get_scopes($ctx).await?;
+            $(
+                if !scopes.$scopes {
+                    return Err(async_graphql::Error::new("Unauthorized"));
+                }
+            )+
+        }
+    };
+}
+pub (crate) use ensure_auth;

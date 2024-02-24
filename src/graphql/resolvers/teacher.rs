@@ -3,7 +3,7 @@ use async_graphql::{ Error as GraphQlError, Result as GraphQlResult, Context };
 
 use crate::types::{Teacher, PronounSet, TeacherName, Period};
 
-use super::get_db;
+use super::{ get_db, ensure_auth };
 
 use uuid::Uuid;
 
@@ -14,13 +14,17 @@ impl Teacher {
     }
 
     #[graphql(complexity = 3)]
-    async fn pronouns(&self) -> &PronounSet {
-        &self.get_pronouns()
+    async fn pronouns(&self, ctx: &Context<'_>) -> GraphQlResult<&PronounSet> {
+        ensure_auth!(ctx, [read_teacher_pronouns]);
+
+        Ok(self.get_pronouns())
     }
 
     #[graphql(complexity = 3)]
-    async fn name(&self) -> &TeacherName {
-        self.get_name()
+    async fn name(&self, ctx: &Context<'_>) -> GraphQlResult<&TeacherName> {
+        ensure_auth!(ctx, [read_teacher_name]);
+
+        Ok(self.get_name())
     }
 
     // Assuming every teacher is out for an average of 5 periods per day (way
@@ -33,6 +37,8 @@ impl Teacher {
         &self,
         ctx: &Context<'_>,
     ) -> GraphQlResult<Vec<Period>> {
+        ensure_auth!(ctx, [read_teacher_absence, read_period]);
+
         let mut db_conn = get_db!(ctx);
 
         let ids = PeriodList::get_by_teacher(self.get_id(), &mut db_conn)
@@ -50,8 +56,10 @@ impl Teacher {
             })
     }
 
-    async fn fully_absent(&self) -> bool {
-        self.get_fully_absent()
+    async fn fully_absent(&self, ctx: &Context<'_>) -> GraphQlResult<bool> {
+        ensure_auth!(ctx, [read_teacher_absence]);
+
+        Ok(self.get_fully_absent())
     }
 }
 

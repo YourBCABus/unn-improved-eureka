@@ -50,22 +50,26 @@ async fn graphql_handler(
     client_id: Option<Header<ClientIdHeader>>,
     client_secret: Option<Header<ClientSecretHeader>>,
 ) -> GraphQLResponse {    
-    
-    let request = request.into_inner();
-    let request = if let Some(id) = client_id {
-        request.data(id.0)
-    } else {
-        request
-    };
-    let request = if let Some(secret) = client_secret {
-        request.data(secret.0)
-    } else {
-        request
-    };
-
+    let request = augment_request(request.into_inner(), client_id, client_secret).await;
     schema.execute(request).await.into()
 }
 
+
+pub async fn augment_request(
+    request: async_graphql::Request,
+    client_id: Option<Header<ClientIdHeader>>,
+    client_secret: Option<Header<ClientSecretHeader>>,
+) -> async_graphql::Request {
+    if let (Some(id), Some(secret)) = (client_id, client_secret) {
+        use tokio::sync::OnceCell;
+        use improved_eureka::verification::scopes::Scopes;
+
+        let scopes_once_cell: OnceCell<Option<Scopes>> = OnceCell::new();
+        request.data(id.0).data(secret.0).data(scopes_once_cell)
+    } else {
+        request
+    }
+}
 
 
 /// This endpoint (`/`) handles serving the
@@ -81,10 +85,12 @@ async fn interactive() -> impl Responder {
         .title("TableJet Interactive GraphQL API");
 
     let html_response = playground_source(config);
+    
+    let secured_response = html_response.replace("//cdn.jsdelivr.net", "https://cdn.jsdelivr.net");
 
     HttpResponse::Ok()
         .content_type(ContentType::html())
-        .body(html_response)
+        .body(secured_response)
 }
 
 

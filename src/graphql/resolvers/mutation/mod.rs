@@ -22,29 +22,7 @@ use crate::graphql::structs::{
     GraphQlPronounSet, TimeRangeInput,
 };
 
-use super::{ get_db, run_query };
-
-
-macro_rules! ensure_auth {
-    ($ctx:ident, db: $db_conn:expr) => {
-        {
-            use $crate::verification::{ ClientIdHeader, ClientSecretHeader };
-            use $crate::verification::id_secret::client_allowed;
-
-            let client_id = $ctx.data::<ClientIdHeader>();
-            let client_secret = $ctx.data::<ClientSecretHeader>();
-
-            let (Ok(client_id), Ok(client_secret)) = (client_id, client_secret) else {
-                return Err(async_graphql::Error::new("Unauthorized"));
-            };
-
-            if !client_allowed(client_id.unwrap(), client_secret.as_bytes(), $db_conn).await {
-                return Err(async_graphql::Error::new("Unauthorized"));
-            }
-        }
-    };
-}
-pub (crate) use ensure_auth;
+use super::{ get_db, run_query, ensure_auth };
 
 /// This is a memberless struct implementing all the mutations for `improved-eureka`.
 /// This includes:
@@ -63,6 +41,8 @@ impl MutationRoot {
         name: GraphQlTeacherName,
         pronouns: GraphQlPronounSet,
     ) -> GraphQlResult<Teacher> {
+        ensure_auth!(ctx, [create_teacher]);
+
         teacher_management::add_teacher(ctx, name, pronouns).await
     }
     
@@ -72,6 +52,8 @@ impl MutationRoot {
         id: Uuid,
         name: GraphQlTeacherName,
     ) -> GraphQlResult<Teacher> {
+        ensure_auth!(ctx, [write_teacher_name]);
+
         teacher_management::update_teacher_name(ctx, id, name).await
     }
 
@@ -81,6 +63,8 @@ impl MutationRoot {
         id: Uuid,
         pronouns: GraphQlPronounSet,
     ) -> GraphQlResult<Teacher> {
+        ensure_auth!(ctx, [write_teacher_pronouns]);
+
         teacher_management::update_teacher_pronouns(ctx, id, pronouns).await
     }
     
@@ -94,7 +78,7 @@ impl MutationRoot {
         use crate::database::prepared::absences::update_absences_for_teacher as update_absences_for_teacher_in_db;
 
         let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, db: &mut db_conn);
+        ensure_auth!(ctx, [write_teacher_absence]);
 
         run_query!(
             db_conn.update_absences_for_teacher_in_db(id, &periods, fully_absent)
@@ -113,6 +97,8 @@ impl MutationRoot {
         provider: String,
         sub: String,
     ) -> GraphQlResult<Teacher> {
+        ensure_auth!(ctx, [experimental, admin]);
+
         oauth::add_teacher_associated_oauth(ctx, id, provider, sub).await
     }
 
@@ -122,6 +108,8 @@ impl MutationRoot {
         id: Uuid,
         provider: String,
     ) -> GraphQlResult<Teacher> {
+        ensure_auth!(ctx, [experimental, admin]);
+
         oauth::remove_teacher_associated_oauth(ctx, id, provider).await
     }
 
@@ -137,6 +125,8 @@ impl MutationRoot {
         fully_absent: bool,
         comment: Option<String>,
     ) -> GraphQlResult<bool> {
+        ensure_auth!(ctx, [experimental, admin]);
+
         futures::set_teacher_future_absence(
             ctx,
             start, end, id,
@@ -151,6 +141,8 @@ impl MutationRoot {
         end: Option<NaiveDate>,
         id: Uuid,
     ) -> GraphQlResult<bool> {
+        ensure_auth!(ctx, [experimental, admin]);
+
         futures::clear_teacher_future_absence(
             ctx,
             start, end, id,
@@ -170,6 +162,8 @@ impl MutationRoot {
         ctx: &Context<'_>,
         id: String,
     ) -> GraphQlResult<bool> {
+        ensure_auth!(ctx, [write_config]);
+
         global::set_spreadsheet_id(ctx, id).await
     }
     async fn set_report_to(
@@ -177,6 +171,8 @@ impl MutationRoot {
         ctx: &Context<'_>,
         report_to: String,
     ) -> GraphQlResult<bool> {
+        ensure_auth!(ctx, [write_config]);
+
         global::set_report_to(ctx, report_to).await
     }
 
@@ -202,6 +198,8 @@ impl MutationRoot {
         name: String,
         default_time: TimeRangeInput,
     ) -> GraphQlResult<Period> {
+        ensure_auth!(ctx, [create_period]);
+
         period_management::add_period(ctx, name, default_time).await
     }
 
@@ -212,6 +210,8 @@ impl MutationRoot {
         id: Uuid,
         name: String,
     ) -> GraphQlResult<Period> {
+        ensure_auth!(ctx, [write_period_name]);
+
         period_management::update_period_name(ctx, id, name).await
     }
     async fn update_period_time(
@@ -221,6 +221,8 @@ impl MutationRoot {
         id: Uuid,
         time: TimeRangeInput,
     ) -> GraphQlResult<Period> {
+        ensure_auth!(ctx, [write_period_time]);
+
         period_management::update_period_time(ctx, id, time).await
     }
     async fn set_period_temp_time(
@@ -230,6 +232,8 @@ impl MutationRoot {
         id: Uuid,
         temp_time: TimeRangeInput,
     ) -> GraphQlResult<Period> {
+        ensure_auth!(ctx, [write_period_temp_time]);
+
         period_management::set_period_temp_time(ctx, id, temp_time).await
     }
     async fn clear_period_temp_time(
@@ -238,12 +242,16 @@ impl MutationRoot {
 
         id: Uuid,
     ) -> GraphQlResult<Period> {
+        ensure_auth!(ctx, [write_period_temp_time]);
+
         period_management::clear_period_temp_time(ctx, id).await
     }
     async fn clear_all_temp_times(
         &self,
         ctx: &Context<'_>,
     ) -> GraphQlResult<bool> {
+        ensure_auth!(ctx, [write_period_temp_time]);
+
         period_management::clear_all_temp_times(ctx).await?;
         Ok(true)
     }
@@ -252,9 +260,9 @@ impl MutationRoot {
         &self,
         ctx: &Context<'_>,
     ) -> GraphQlResult<String> {
-        let mut db_conn = get_db!(ctx);
+        ensure_auth!(ctx, [admin]);
+
         let metrics = ctx.data::<crate::state::AppState>()?.metrics();
-        ensure_auth!(ctx, db: &mut db_conn);
 
         if metrics.clear(None).await.is_ok() {
             Ok("Metrics cleared".to_string())

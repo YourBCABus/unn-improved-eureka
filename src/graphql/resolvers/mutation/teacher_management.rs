@@ -2,7 +2,6 @@ use async_graphql::Context;
 use uuid::Uuid;
 
 
-use crate::graphql::resolvers::mutation::ensure_auth;
 use crate::graphql::resolvers::{get_db, run_query};
 use crate::graphql::req_id;
 
@@ -19,7 +18,6 @@ pub async fn add_teacher(
     use crate::database::prepared::teacher::create_teacher as add_teacher_to_db;
 
     let mut db_conn = get_db!(ctx);
-    ensure_auth!(ctx, db: &mut db_conn);
 
     let teacher = Teacher::new(
         uuid::Uuid::new_v4(),
@@ -43,7 +41,6 @@ pub async fn update_teacher_name(
     use crate::database::prepared::teacher::update_teacher_name as update_teacher_name_in_db;
 
     let mut db_conn = get_db!(ctx);
-    ensure_auth!(ctx, db: &mut db_conn);
 
     run_query!(
         db_conn.update_teacher_name_in_db(id, name.into())
@@ -59,7 +56,6 @@ pub async fn update_teacher_pronouns(
     use crate::database::prepared::teacher::update_teacher_pronouns as update_teacher_pronouns_in_db;
 
     let mut db_conn = get_db!(ctx);
-    ensure_auth!(ctx, db: &mut db_conn);
 
     run_query!(
         db_conn.update_teacher_pronouns_in_db(id, pronouns.into())

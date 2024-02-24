@@ -100,3 +100,35 @@ fn req_id(context: &async_graphql::Context) -> uuid::Uuid {
         id
     }
 }
+
+async fn get_scopes(context: &async_graphql::Context<'_>) -> async_graphql::Result<crate::verification::scopes::Scopes> {
+    use crate::verification::{
+        ClientIdHeader, ClientSecretHeader,
+        scopes::Scopes, id_secret::client_allowed,
+    };
+    use tokio::sync::OnceCell;
+    use async_graphql::Error as GraphQlError;
+
+
+    let Ok(scopes_cell) = context.data::<OnceCell<Scopes>>() else {
+        return Ok(Scopes::new());
+    };
+
+    scopes_cell.get_or_try_init(|| async {
+        let Ok(app_state) = context.data::<crate::state::AppState>() else {
+            return Err(GraphQlError::new("Internal server error (App State)"));
+        };
+        let Ok(mut db_pool) = app_state.db().acquire().await else {
+            return Err(GraphQlError::new("Internal server error (DB)"));
+        };
+
+        let id = context.data::<ClientIdHeader>().map(|id| id.inner());
+        let secret = context.data::<ClientSecretHeader>().map(|secret| secret.as_bytes());
+
+        if let (Ok(id), Ok(secret)) = (id, secret) {
+            Ok(client_allowed(id, secret, &mut db_pool).await.clone().unwrap_or_default())
+        } else {
+            Ok(Scopes::new())
+        }
+    }).await.map(Clone::clone)
+}
