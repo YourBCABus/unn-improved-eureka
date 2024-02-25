@@ -68,6 +68,14 @@ macro_rules! define_scopes {
                     base
                 }
             }
+
+            pub fn all() -> Self {
+                Self::new() | !Self::new()
+            }
+
+            pub fn none() -> Self {
+                Self::new() & !Self::new()
+            }
         }
 
         impl std::ops::BitOr for Scopes {
@@ -89,6 +97,18 @@ macro_rules! define_scopes {
                 let mut scopes = Self::new();
                 paste::paste! {
                     $(scopes.[<$scopes:snake>] = self.[<$scopes:snake>] && rhs.[<$scopes:snake>];)+
+                }
+                scopes
+            }
+        }
+
+        impl std::ops::Not for Scopes {
+            type Output = Self;
+
+            fn not(self) -> Self {
+                let mut scopes = Self::new();
+                paste::paste! {
+                    $(scopes.[<$scopes:snake>] = !self.[<$scopes:snake>];)+
                 }
                 scopes
             }
