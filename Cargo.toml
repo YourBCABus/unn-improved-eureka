@@ -51,3 +51,9 @@ inherits = "release"
 opt-level = "s"
 lto = "fat"
 codegen-units = 1
+
+[profile.release-minimum]
+inherits = "release-final"
+opt-level = "z"
+strip = true
+

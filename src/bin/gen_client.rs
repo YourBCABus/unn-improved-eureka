@@ -1,7 +1,6 @@
 use std::io::Write;
 
 use improved_eureka::verification::{id_secret::generate_client_keystr, scopes::Scopes};
-use rand::CryptoRng;
 use rpassword::read_password;
 
 fn main() {
