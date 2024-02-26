@@ -75,6 +75,7 @@ pub (crate) use run_query;
 macro_rules! ensure_auth {
     ($ctx:ident, [$($scopes:ident),+]) => {
         {
+            $crate::logging::trace!("Getting scopes...");
             let scopes = $crate::graphql::get_scopes($ctx).await?;
             $(
                 if !scopes.$scopes {

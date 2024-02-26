@@ -111,23 +111,34 @@ async fn get_scopes(context: &async_graphql::Context<'_>) -> async_graphql::Resu
 
 
     let Ok(scopes_cell) = context.data::<OnceCell<Scopes>>() else {
+        crate::logging::error!("OnceCell Missing from context!");
         return Ok(Scopes::new());
     };
 
     scopes_cell.get_or_try_init(|| async {
         let Ok(app_state) = context.data::<crate::state::AppState>() else {
-            return Err(GraphQlError::new("Internal server error (App State)"));
+            let err = GraphQlError::new("Internal server error (App State)");
+            crate::logging::error!("{err:?}");
+            return Err(err);
         };
-        let Ok(mut db_pool) = app_state.db().acquire().await else {
-            return Err(GraphQlError::new("Internal server error (DB)"));
+        let mut db_pool = match app_state.db().acquire().await {
+            Ok(db_pool) => db_pool,
+            Err(e) => {
+                crate::logging::error!("DB Error: {e:?}");
+                return Err(GraphQlError::new("Internal server error (DB)"));
+            },
         };
 
         let id = context.data::<ClientIdHeader>().map(|id| id.inner());
         let secret = context.data::<ClientSecretHeader>().map(|secret| secret.as_bytes());
 
+        let id_ok = id.is_ok();
+        let secret_ok = secret.is_ok();
+
         if let (Ok(id), Ok(secret)) = (id, secret) {
             Ok(client_allowed(id, secret, &mut db_pool).await.clone().unwrap_or_default())
         } else {
+            crate::logging::info!("No client id or secret, id: {id_ok}, secret: {secret_ok}");
             Ok(Scopes::new())
         }
     }).await.map(Clone::clone)

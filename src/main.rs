@@ -64,7 +64,7 @@ pub async fn augment_request(
         use tokio::sync::OnceCell;
         use improved_eureka::verification::scopes::Scopes;
 
-        let scopes_once_cell: OnceCell<Option<Scopes>> = OnceCell::new();
+        let scopes_once_cell: OnceCell<Scopes> = OnceCell::new();
         request.data(id.0).data(secret.0).data(scopes_once_cell)
     } else {
         request
