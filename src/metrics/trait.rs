@@ -99,3 +99,50 @@ impl Metrics for ResponseTimeMap {
         (sum / self.recorded() as f64).sqrt()
     }
 }
+
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SparseMetricsView {
+    pub mean: f64,
+    pub median: f64,
+    pub mode: f64,
+    pub min: f64,
+    pub max: f64,
+    pub mad: f64,
+    pub std_dev: f64,
+
+    pub percentiles: [(u8, f64); 101],
+}
+
+impl SparseMetricsView {
+    pub fn zero() -> Self {
+        Self {
+            mean: 0.0,
+            median: 0.0,
+            mode: 0.0,
+            min: 0.0,
+            max: 0.0,
+            mad: 0.0,
+            std_dev: 0.0,
+            percentiles: std::array::from_fn(|i| (i as u8, 0.0)),
+        }
+    }
+
+    pub fn from_metrics(metrics_object: &impl Metrics) -> Self {
+        Self {
+            mean: metrics_object.mean(),
+            median: metrics_object.median(),
+            mode: metrics_object.mode(),
+            min: metrics_object.min(),
+            max: metrics_object.max(),
+            mad: metrics_object.mad(),
+            std_dev: metrics_object.std_dev(),
+            percentiles: std::array::from_fn(
+                |percentile| (
+                    percentile as u8,
+                    metrics_object.percentile(percentile as f64 / 100.0),
+                )
+            ),
+        }
+    }
+}

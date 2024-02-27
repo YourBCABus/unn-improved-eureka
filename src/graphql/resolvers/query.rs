@@ -9,6 +9,7 @@
 use crate::database::prepared::privileges::get_privileges;
 
 use crate::graphql::req_id;
+use crate::metrics::SparseMetricsView;
 use crate::types::Privileges;
 use crate::types::Teacher;
 use crate::types::Period;
@@ -249,7 +250,7 @@ impl QueryRoot {
     async fn get_metrics(
         &self,
         ctx: &Context<'_>,
-    ) -> GraphQlResult<String> {
+    ) -> GraphQlResult<SparseMetricsView> {
         let metrics = ctx.data::<crate::state::AppState>()?.metrics();
 
         if let Ok(output) = metrics.read(None).await {

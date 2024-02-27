@@ -60,12 +60,13 @@ pub async fn augment_request(
     client_id: Option<Header<ClientIdHeader>>,
     client_secret: Option<Header<ClientSecretHeader>>,
 ) -> async_graphql::Request {
-    if let (Some(id), Some(secret)) = (client_id, client_secret) {
-        use tokio::sync::OnceCell;
-        use improved_eureka::verification::scopes::Scopes;
+    use tokio::sync::OnceCell;
+    use improved_eureka::verification::scopes::Scopes;
+    let scopes_once_cell: OnceCell<Scopes> = OnceCell::new();
+    let request = request.data(scopes_once_cell);
 
-        let scopes_once_cell: OnceCell<Scopes> = OnceCell::new();
-        request.data(id.0).data(secret.0).data(scopes_once_cell)
+    if let (Some(id), Some(secret)) = (client_id, client_secret) {
+        request.data(id.0).data(secret.0)
     } else {
         request
     }

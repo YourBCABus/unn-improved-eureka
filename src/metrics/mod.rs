@@ -2,7 +2,6 @@ mod data;
 mod r#trait;
 pub mod middleware;
 
-use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 
 use std::time::Duration;
@@ -11,14 +10,21 @@ use tokio::sync::oneshot::{ Sender as OneshotSender, channel as oneshot_channel 
 
 use self::data::ResponseTimeMap;
 use self::r#trait::Metrics;
+pub use self::r#trait::SparseMetricsView;
+
+#[derive(Debug)]
+pub struct SingleResponseMetricsCommand {
+    pub command: MetricsCommand,
+    pub responder: OneshotSender<Box<SparseMetricsView>>,
+}
 
 #[derive(Debug)]
 pub struct ResponseTimeMetrics {
     rtm: ResponseTimeMap,
     reciever: Receiver<Duration>,
-    command_reciever: Receiver<(MetricsCommand, OneshotSender<bool>)>,
+    command_reciever: Receiver<SingleResponseMetricsCommand>,
     sender: Sender<Duration>,
-    command_sender: Sender<(MetricsCommand, OneshotSender<bool>)>,
+    command_sender: Sender<SingleResponseMetricsCommand>,
 }
 
 impl Metrics for ResponseTimeMetrics {
@@ -38,14 +44,12 @@ impl ResponseTimeMetrics {
         MetricProducer(self.sender.clone(), self.command_sender.clone())
     }
 
-    pub fn spawn(mut self) {
-        tokio::spawn(async move {
-            self.start().await;
-        });
+    pub fn spawn(self) {
+        tokio::spawn(self.start());
     }
 
-    pub async fn start(&mut self) {
-        let Self { rtm, reciever, command_reciever, .. } = self;
+    pub async fn start(self) {
+        let Self { mut rtm, mut reciever, mut command_reciever, .. } = self;
 
         let working = AtomicBool::new(true);
 
@@ -53,14 +57,14 @@ impl ResponseTimeMetrics {
             tokio::select! {
                 duration = reciever.recv() => {
                     if let Some(duration) = duration {
-                        Self::record_duration(rtm, duration)
+                        Self::record_duration(&mut rtm, duration)
                     } else {
                         working.store(false, std::sync::atomic::Ordering::Release);
                     }
                 },
                 command = command_reciever.recv() => {
-                    if let Some((cmd, acknowledgement)) = command {
-                        Self::handle_command(rtm, cmd, acknowledgement);
+                    if let Some(command) = command {
+                        Self::handle_command(&mut rtm, command.command, command.responder);
                     } else {
                         working.store(false, std::sync::atomic::Ordering::Release);
                     }
@@ -77,21 +81,26 @@ impl ResponseTimeMetrics {
             .as_nanos() as u64;
         rtm.record_nanos(nanos);
     }
-    fn handle_command(rtm: &mut ResponseTimeMap, cmd: MetricsCommand, ack: OneshotSender<bool>) {
+    fn handle_command(
+        rtm: &mut ResponseTimeMap,
+        cmd: MetricsCommand,
+        responder: OneshotSender<Box<SparseMetricsView>>,
+    ) {
         match cmd {
-            MetricsCommand::SaveTo(path) => {
-                let output = rtm.output();
-                tokio::spawn(async move {
-                    let res = tokio::fs::write(
-                        path,
-                        output,
-                    ).await;
-                    let _ = ack.send(res.is_ok());
-                });
+            MetricsCommand::Read => {
+                let output = Box::new(SparseMetricsView::from_metrics(rtm));
+                
+                if let Err(e) = responder.send(output) {
+                    crate::logging::error!("Failed to send response to metrics command: {:?}", e);
+                    crate::logging::info!("Timeout will likely trigger...");
+                }
             }
             MetricsCommand::Clear => {
                 rtm.clear();
-                let _ = ack.send(true);
+                if let Err(e) = responder.send(Box::new(SparseMetricsView::zero())) {
+                    crate::logging::error!("Failed to send response to metrics command: {:?}", e);
+                    crate::logging::info!("Timeout will likely trigger...");
+                }
             }
         }
     }
@@ -116,11 +125,11 @@ impl Default for ResponseTimeMetrics {
 
 
 #[derive(Debug, Clone)]
-pub struct MetricProducer(Sender<Duration>, Sender<(MetricsCommand, OneshotSender<bool>)>);
+pub struct MetricProducer(Sender<Duration>, Sender<SingleResponseMetricsCommand>);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MetricsCommand {
-    SaveTo(PathBuf),
+    Read,
     Clear,
 }
 
@@ -132,50 +141,45 @@ impl MetricProducer {
             sender.send(duration).await
         });
     }
-    async fn send(&self, command: MetricsCommand, timeout: Duration) -> Result<(), SendError<MetricsCommand>> {
+    async fn send(&self, command: MetricsCommand, timeout: Duration) -> Result<SparseMetricsView, SendError<MetricsCommand>> {
         let (sender, reciever) = oneshot_channel();
 
+        let single_response_command = SingleResponseMetricsCommand {
+            command,
+            responder: sender,
+        };
+
         self.1
-            .send((command.clone(), sender))
+            .send(single_response_command)
             .await
-            .map_err(|SendError((command, _))| SendError(command))?;
+            .map_err(|SendError(single_response_command)| SendError(single_response_command.command))?;
 
         tokio::select! {
             res = reciever => {
-                if let Ok(success) = res {
-                    if success {
-                        Ok(())
-                    } else {
+                match res {
+                    Ok(view) => {
+                        crate::logging::debug!("Successfully recieved metrics view: {view:?}");
+                        Ok(*view)
+                    },
+                    Err(e) => {
+                        crate::logging::debug!("Failed to recieve metrics view - recieve failed: {e:?}");
                         Err(SendError(command))
-                    }
-                } else {
-                    Err(SendError(command))
+                    },
                 }
             },
-            _ = tokio::time::sleep(timeout) => Err(SendError(command)),
+            _ = tokio::time::sleep(timeout) => {
+                crate::logging::debug!("Failed to recieve metrics view - {:.4} second timeout expired", timeout.as_secs_f64());
+                Err(SendError(command))
+            },
         }
     }
 
-    pub async fn save_to(&self, path: PathBuf, timeout: Option<Duration>) -> Result<(), SendError<MetricsCommand>> {
-        self.send(MetricsCommand::SaveTo(path), timeout.unwrap_or(Duration::from_secs(10))).await
-    }
-
-    pub async fn read(&self, timeout: Option<Duration>) -> Result<String, SendError<MetricsCommand>> {
-        let file_name = format!("metrics-{}.metrics", chrono::Utc::now().to_rfc3339());
-        let path = PathBuf::from(file_name);
-        self.save_to(path.clone(), timeout).await?;
-
-        let output = tokio::fs::read_to_string(path.clone())
-            .await
-            .map_err(|_| SendError(MetricsCommand::SaveTo(path.clone())))?;
-
-        tokio::fs::remove_file(path.clone()).await
-            .map_err(|_| SendError(MetricsCommand::SaveTo(path)))?;
-
-        Ok(output)
+    pub async fn read(&self, timeout: Option<Duration>) -> Result<SparseMetricsView, SendError<MetricsCommand>> {
+        self.send(MetricsCommand::Read, timeout.unwrap_or(Duration::from_secs(10))).await
     }
 
     pub async fn clear(&self, timeout: Option<Duration>) -> Result<(), SendError<MetricsCommand>> {
-        self.send(MetricsCommand::Clear, timeout.unwrap_or(Duration::from_secs(10))).await
+        self.send(MetricsCommand::Clear, timeout.unwrap_or(Duration::from_secs(10))).await?;
+        Ok(())
     }
 }

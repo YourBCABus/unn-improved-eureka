@@ -9,6 +9,7 @@ mod time_range;
 mod pronoun_set;
 mod teacher_name;
 mod privileges;
+mod sparse_metrics_view;
 
 pub use {
     // teacher::TeacherMetadata,
