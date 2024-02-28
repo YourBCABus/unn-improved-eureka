@@ -5,7 +5,6 @@
 // mod all_teachers;
 // mod all_periods;
 
-
 use crate::database::prepared::privileges::get_privileges;
 
 use crate::graphql::req_id;
@@ -25,6 +24,7 @@ use async_graphql::{
     Result as GraphQlResult,
     Error as GraphQlError,
 };
+
 
 use chrono::NaiveDate;
 use uuid::Uuid;
@@ -251,9 +251,18 @@ impl QueryRoot {
         &self,
         ctx: &Context<'_>,
     ) -> GraphQlResult<SparseMetricsView> {
+        use super::sparse_metrics_view::{
+            find_buckets_params_from_lookahead,
+            buckets_valid,
+        };
+        let (step, range) = find_buckets_params_from_lookahead(ctx.look_ahead())
+            .unwrap_or((1.0, 0.0..1.0));
+
+        buckets_valid(range.clone(), step)?;
+
         let metrics = ctx.data::<crate::state::AppState>()?.metrics();
 
-        if let Ok(output) = metrics.read(None).await {
+        if let Ok(output) = metrics.read(None, (range, step)).await {
             Ok(output)
         } else {
             Err(GraphQlError::new("Failed to read metrics"))

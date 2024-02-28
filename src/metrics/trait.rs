@@ -12,6 +12,8 @@ pub trait Metrics {
     fn mad(&self) -> f64;
     fn std_dev(&self) -> f64;
 
+    fn buckets(&self, range_ms: std::ops::Range<f64>, step: f64) -> Buckets;
+
     fn output(&self) -> String {
         use std::fmt::Write;
 
@@ -40,6 +42,29 @@ impl Metrics for ResponseTimeMap {
         let count: f64 = self.recorded() as f64;
         sum / count
     }
+
+    fn buckets(&self, range_ms: std::ops::Range<f64>, step: f64) -> Buckets {
+        let mut values = vec![0.0; ((range_ms.end - range_ms.start) / step).ceil() as usize];
+
+        for (k, v) in self.iter() {
+            let ms = k.as_nanos() as f64 / 1_000_000.0;
+            if ms < range_ms.start || ms >= range_ms.end {
+                continue;
+            }
+            let index = ((ms - range_ms.start) / step) as usize;
+
+            if index < values.len() {
+                values[index] += v as f64;
+            }
+        }
+
+        Buckets {
+            values,
+            range: range_ms,
+            step,
+        }
+    }
+
     fn percentile(&self, p: f64) -> f64 {
         let p = p.clamp(0.0, 1.0);
 
@@ -62,6 +87,7 @@ impl Metrics for ResponseTimeMap {
 
         f64::NAN
     }
+
     fn median(&self) -> f64 {
         self.percentile(0.5)
     }
@@ -101,7 +127,37 @@ impl Metrics for ResponseTimeMap {
 }
 
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone)]
+pub struct Buckets {
+    pub values: Vec<f64>,
+    pub range: std::ops::Range<f64>,
+    pub step: f64,
+}
+
+impl Buckets {
+    pub fn values_slice(&self) -> &[f64] { &self.values }
+
+    pub fn rescale_with_max_of(&self, max: f64) -> Self {
+        let values_max = self.values.iter().copied().max_by(|a, b| a.total_cmp(b)).unwrap_or(1.0);
+        let multiplier = max / values_max;
+        let new_values = self.values.iter().map(|&v| v * multiplier).collect();
+
+        Buckets { values: new_values, range: self.range.clone(), step: self.step }
+    }
+
+    pub fn entries_iter(&self) -> impl Iterator<Item = (f64, std::ops::Range<f64>)> + '_ {
+        self.values
+            .iter().copied()
+            .enumerate()
+            .map(|(ids, val)| {
+                let start = self.range.start + (self.step * ids as f64);
+                let end = start + self.step;
+                (val, start..end)
+            })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct SparseMetricsView {
     pub mean: f64,
     pub median: f64,
@@ -112,6 +168,7 @@ pub struct SparseMetricsView {
     pub std_dev: f64,
 
     pub percentiles: [(u8, f64); 101],
+    pub buckets: Buckets,
 }
 
 impl SparseMetricsView {
@@ -125,10 +182,15 @@ impl SparseMetricsView {
             mad: 0.0,
             std_dev: 0.0,
             percentiles: std::array::from_fn(|i| (i as u8, 0.0)),
+            buckets: Buckets {
+                values: vec![0.0; 1],
+                range: 0.0..1.0,
+                step: 1.0,
+            },
         }
     }
 
-    pub fn from_metrics(metrics_object: &impl Metrics) -> Self {
+    pub fn from_metrics(metrics_object: &impl Metrics, range: std::ops::Range<f64>, step: f64) -> Self {
         Self {
             mean: metrics_object.mean(),
             median: metrics_object.median(),
@@ -143,6 +205,7 @@ impl SparseMetricsView {
                     metrics_object.percentile(percentile as f64 / 100.0),
                 )
             ),
+            buckets: metrics_object.buckets(range, step),
         }
     }
 }

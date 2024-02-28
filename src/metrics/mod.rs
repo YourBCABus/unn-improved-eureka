@@ -10,7 +10,7 @@ use tokio::sync::oneshot::{ Sender as OneshotSender, channel as oneshot_channel 
 
 use self::data::ResponseTimeMap;
 use self::r#trait::Metrics;
-pub use self::r#trait::SparseMetricsView;
+pub use self::r#trait::{ SparseMetricsView, Buckets };
 
 #[derive(Debug)]
 pub struct SingleResponseMetricsCommand {
@@ -30,6 +30,7 @@ pub struct ResponseTimeMetrics {
 impl Metrics for ResponseTimeMetrics {
     fn mean(&self) -> f64 { self.rtm.mean() }
     fn percentile(&self, p: f64) -> f64 { self.rtm.percentile(p) }
+    fn buckets(&self, range_ms: std::ops::Range<f64>, step: f64) -> r#trait::Buckets { self.rtm.buckets(range_ms, step) }
     fn median(&self) -> f64 { self.rtm.median() }
     fn mode(&self) -> f64 { self.rtm.mode() }
     fn min(&self) -> f64 { self.rtm.min() }
@@ -87,8 +88,8 @@ impl ResponseTimeMetrics {
         responder: OneshotSender<Box<SparseMetricsView>>,
     ) {
         match cmd {
-            MetricsCommand::Read => {
-                let output = Box::new(SparseMetricsView::from_metrics(rtm));
+            MetricsCommand::Read { range, step } => {
+                let output = Box::new(SparseMetricsView::from_metrics(rtm, range, step));
                 
                 if let Err(e) = responder.send(output) {
                     crate::logging::error!("Failed to send response to metrics command: {:?}", e);
@@ -127,9 +128,9 @@ impl Default for ResponseTimeMetrics {
 #[derive(Debug, Clone)]
 pub struct MetricProducer(Sender<Duration>, Sender<SingleResponseMetricsCommand>);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MetricsCommand {
-    Read,
+    Read { range: std::ops::Range<f64>, step: f64 },
     Clear,
 }
 
@@ -145,7 +146,7 @@ impl MetricProducer {
         let (sender, reciever) = oneshot_channel();
 
         let single_response_command = SingleResponseMetricsCommand {
-            command,
+            command: command.clone(),
             responder: sender,
         };
 
@@ -174,8 +175,8 @@ impl MetricProducer {
         }
     }
 
-    pub async fn read(&self, timeout: Option<Duration>) -> Result<SparseMetricsView, SendError<MetricsCommand>> {
-        self.send(MetricsCommand::Read, timeout.unwrap_or(Duration::from_secs(10))).await
+    pub async fn read(&self, timeout: Option<Duration>, (range, step): (std::ops::Range<f64>, f64)) -> Result<SparseMetricsView, SendError<MetricsCommand>> {
+        self.send(MetricsCommand::Read { range, step }, timeout.unwrap_or(Duration::from_secs(10))).await
     }
 
     pub async fn clear(&self, timeout: Option<Duration>) -> Result<(), SendError<MetricsCommand>> {
