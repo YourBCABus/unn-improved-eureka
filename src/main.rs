@@ -14,7 +14,7 @@ async fn main() -> std::io::Result<()> {
 
     let sender = setup::metrics();
 
-    setup::env_and_logging();
+    let clean_up_logging = setup::env_and_logging();
     let schema = setup::data(
         Some("./schema.graphql"),
         sender.clone(),
@@ -31,6 +31,7 @@ async fn main() -> std::io::Result<()> {
         async { info!("Server bound to {}:{}", bind_to.0, bind_to.1); },
     );
 
+    clean_up_logging();
     result
 }
 
@@ -96,6 +97,7 @@ async fn interactive() -> impl Responder {
 
 
 mod setup {
+    use arcs_logging_rs::default_logging_targets_with_size_limit;
     use improved_eureka::graphql::Schema;
 
     /// This function sets up the environment using dotenvy and initializes the
@@ -103,17 +105,30 @@ mod setup {
     /// 
     /// NOTE: We probably should more away from the ARCS thing at some point,
     /// but it works for now.
-    pub fn env_and_logging() {
+    pub fn env_and_logging() -> impl FnOnce() {
         use arcs_logging_rs::set_up_logging;
 
         dotenvy::dotenv().unwrap();
-        set_up_logging(&arcs_logging_rs::DEFAULT_LOGGGING_TARGETS, "TableJet Improved Eureka").unwrap();
 
         {
             use improved_eureka::env::checks::*;
             main().unwrap();
             sql().unwrap();
         }
+
+        let max_size = if let Ok(max_size) = std::env::var("LOG_MAX_SIZE") {
+            max_size.parse().ok()
+        } else {
+            None
+        };
+
+        if max_size.is_none() {
+            eprintln!("Failed to parse LOG_MAX_SIZE as u64, using default of 10 MB");
+        }
+        
+        let max_size = max_size.unwrap_or(10 * 1024 * 1024); // 10 MB
+
+        set_up_logging(&default_logging_targets_with_size_limit(max_size), "TableJet Improved Eureka").unwrap()
     }
 
     /// Gets and starts metrics monitoring
