@@ -268,4 +268,16 @@ impl QueryRoot {
             Err(GraphQlError::new("Failed to read metrics"))
         }
     }
+
+    async fn attribs(&self, ctx: &Context<'_>) -> GraphQlResult<super::attribs::Attribs> {
+        use crate::database::prepared::config::get_attribs as get_attribs_from_db;
+
+        let mut db_conn = get_db!(ctx);
+        let attribs_inner = run_query!(
+            db_conn.get_attribs_from_db()
+            else (req_id(ctx)) "Failed to get attribs from database: {}"
+        )?;
+
+        Ok(super::attribs::Attribs(attribs_inner))
+    }
 }

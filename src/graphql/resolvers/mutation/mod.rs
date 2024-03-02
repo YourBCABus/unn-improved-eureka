@@ -3,6 +3,7 @@ mod global;
 mod oauth;
 mod period_management;
 mod teacher_management;
+mod attribs;
 
 use async_graphql::{
     Object,
@@ -269,6 +270,10 @@ impl MutationRoot {
         } else {
             Err(async_graphql::Error::new("Failed to clear metrics"))
         }
+    }
+
+    async fn attribs(&self) -> attribs::AttribMutationRoot {
+        attribs::AttribMutationRoot
     }
 
     // async fn delete_period(

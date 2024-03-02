@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE config\n                SET attribs = $1;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cc32075fd25ae7f63b49bd15040b3326dbf42e3a67a4240f1cfa9e3afcb5ca37"
+}

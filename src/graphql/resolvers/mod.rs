@@ -10,6 +10,7 @@ mod pronoun_set;
 mod teacher_name;
 mod privileges;
 mod sparse_metrics_view;
+mod attribs;
 
 pub use {
     // teacher::TeacherMetadata,

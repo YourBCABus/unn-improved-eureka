@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE config\n            SET attribs = jsonb_set_lax(attribs, $1, null, true, 'delete_key');\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "287968ce60377cda547f3321ad5ec9de3e0a306c58b31a14bf546420d5725ab9"
+}
