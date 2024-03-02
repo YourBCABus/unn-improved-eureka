@@ -80,7 +80,7 @@ macro_rules! ensure_auth {
             $crate::logging::trace!("Getting scopes...");
             let scopes = $crate::graphql::get_scopes($ctx).await?;
             $(
-                if !scopes.$scopes {
+                if !scopes.$scopes && !scopes.admin {
                     return Err(async_graphql::Error::new("Unauthorized"));
                 }
             )+
