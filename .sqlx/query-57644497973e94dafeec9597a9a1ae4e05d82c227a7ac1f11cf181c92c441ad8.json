@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM periods\n            WHERE is_temp;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "57644497973e94dafeec9597a9a1ae4e05d82c227a7ac1f11cf181c92c441ad8"
+}

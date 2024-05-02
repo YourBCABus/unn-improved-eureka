@@ -1,4 +1,4 @@
-use sqlx::query_as;
+use sqlx::{query, query_as};
 use uuid::Uuid;
 
 use super::super::Ctx;
@@ -20,7 +20,9 @@ pub async fn get_period(ctx: &mut Ctx, id: Uuid) -> Result<Period, sqlx::Error> 
                 EXTRACT(EPOCH FROM end_time)::float as "end!",
 
                 EXTRACT(EPOCH FROM temp_start)::float as temp_start,
-                EXTRACT(EPOCH FROM temp_end)::float as temp_end
+                EXTRACT(EPOCH FROM temp_end)::float as temp_end,
+
+                is_temp
             FROM periods
             WHERE id = $1;
         "#,
@@ -43,7 +45,9 @@ pub async fn get_all_periods(ctx: &mut Ctx) -> Result<Vec<Period>, sqlx::Error> 
                 EXTRACT(EPOCH FROM end_time)::float as "end!",
 
                 EXTRACT(EPOCH FROM temp_start)::float as temp_start,
-                EXTRACT(EPOCH FROM temp_end)::float as temp_end
+                EXTRACT(EPOCH FROM temp_end)::float as temp_end,
+
+                is_temp
             FROM periods;
         "#,
     );
@@ -51,19 +55,21 @@ pub async fn get_all_periods(ctx: &mut Ctx) -> Result<Vec<Period>, sqlx::Error> 
     get_all_periods_query.fetch_all(&mut **ctx).await
 }
 
-pub async fn create_period(ctx: &mut Ctx, name: &str, time_range: [f64; 2]) -> Result<Period, sqlx::Error> {
+pub async fn create_period(ctx: &mut Ctx, name: &str, time_range: [f64; 2], temp: bool) -> Result<Period, sqlx::Error> {
     let add_period = prepared_query!(
         r#"
-            INSERT INTO periods (id, name, start_time, end_time)
+            INSERT INTO periods (id, name, start_time, end_time, is_temp)
             VALUES (
                 uuid_generate_v4(), $1,
                 TIME '00:00' + $2 * INTERVAL '1 second',
-                TIME '00:00' + $3 * INTERVAL '1 second'
+                TIME '00:00' + $3 * INTERVAL '1 second',
+                $4
             ) RETURNING id AS "id: _";
         "#;
         { id: Uuid };
         name,
         time_range[0], time_range[1],
+        temp,
     );
     
     let id = add_period.fetch_one(&mut **ctx).await?.id;
@@ -151,3 +157,30 @@ pub async fn flush_all_temp_times(ctx: &mut Ctx) -> sqlx::Result<()> {
     Ok(())
 }
 
+pub async fn flush_all_temp_periods(ctx: &mut Ctx) -> sqlx::Result<()> {
+    let flush_temp_times = prepared_query!(
+        r"
+            DELETE FROM periods
+            WHERE is_temp;
+        ";
+        {  };
+    );
+    
+    flush_temp_times.execute(&mut **ctx).await?;
+    Ok(())
+}
+
+pub async fn delete_period(ctx: &mut Ctx, id: Uuid) -> Result<u64, sqlx::Error> {
+    let delete_period_query = query!(
+        r#"
+            DELETE FROM periods
+            WHERE id = $1;
+        "#,
+        id,
+    );
+
+    delete_period_query
+        .execute(&mut **ctx)
+        .await
+        .map(|res| res.rows_affected())
+}

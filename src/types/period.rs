@@ -16,6 +16,8 @@ pub struct Period {
     
     pub temp_start: Option<f64>,
     pub temp_end: Option<f64>,
+
+    pub is_temp: bool,
 }
 
 impl Debug for Period {

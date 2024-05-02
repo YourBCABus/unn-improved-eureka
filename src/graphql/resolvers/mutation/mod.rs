@@ -201,7 +201,19 @@ impl MutationRoot {
     ) -> GraphQlResult<Period> {
         ensure_auth!(ctx, [create_period]);
 
-        period_management::add_period(ctx, name, default_time).await
+        period_management::add_period(ctx, name, default_time, false).await
+    }
+
+    async fn add_temp_period(
+        &self,
+        ctx: &Context<'_>,
+
+        name: String,
+        default_time: TimeRangeInput,
+    ) -> GraphQlResult<Period> {
+        ensure_auth!(ctx, [create_period]);
+
+        period_management::add_period(ctx, name, default_time, true).await
     }
 
     async fn update_period_name(
@@ -257,6 +269,16 @@ impl MutationRoot {
         Ok(true)
     }
 
+    async fn clear_all_temp_periods(
+        &self,
+        ctx: &Context<'_>,
+    ) -> GraphQlResult<bool> {
+        ensure_auth!(ctx, [delete_period]);
+
+        period_management::clear_all_temp_periods(ctx).await?;
+        Ok(true)
+    }
+
     async fn clear_metrics(
         &self,
         ctx: &Context<'_>,
@@ -276,18 +298,15 @@ impl MutationRoot {
         attribs::AttribMutationRoot
     }
 
-    // async fn delete_period(
-    //     ctx: &Context,
-    //     id: PeriodId,
-    // ) -> juniper::FieldResult<bool> {
-    //     let mut db_context_mut = ctx.get_db_mut().await;
+    async fn delete_period(
+        &self,
+        ctx: &Context<'_>,
+        id: Uuid,
+    ) -> GraphQlResult<u64> {
+        ensure_auth!(ctx, [delete_period, admin]);
 
-    //     delete_period
-    //         ::delete_period(&mut db_context_mut.client, id)
-    //         .await
-    //         .map_err(IntoFieldError::into_field_error)?;
-    //     Ok(true)
-    // }
+        period_management::delete_period(ctx, id).await
+    }
 
     // async fn clear_absences(
     //     ctx: &Context,

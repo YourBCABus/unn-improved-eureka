@@ -15,13 +15,14 @@ pub async fn add_period(
 
     name: String,
     default_time: TimeRangeInput,
+    is_temp: bool,
 ) -> GraphQlResult<Period> {
     use crate::database::prepared::period::create_period as add_period_to_db;
 
     let mut db_conn = get_db!(ctx);
 
     run_query!(
-        db_conn.add_period_to_db(&name, [default_time.start, default_time.end])
+        db_conn.add_period_to_db(&name, [default_time.start, default_time.end], is_temp)
         else (req_id(ctx)) "Database error: {}"
     )
 }
@@ -99,4 +100,30 @@ pub async fn clear_all_temp_times(
     )
 }
 
+pub async fn clear_all_temp_periods(
+    ctx: &Context<'_>,
+) -> GraphQlResult<()> {
+    use crate::database::prepared::period::flush_all_temp_periods as clear_all_temp_periods_in_db;
 
+    let mut db_conn = get_db!(ctx);
+
+    run_query!(
+        db_conn.clear_all_temp_periods_in_db()
+        else (req_id(ctx)) "Database error: {}"
+    )
+}
+
+pub async fn delete_period(
+    ctx: &Context<'_>,
+
+    id: Uuid,
+) -> GraphQlResult<u64> {
+    use crate::database::prepared::period::delete_period as delete_period_in_db;
+
+    let mut db_conn = get_db!(ctx);
+
+    run_query!(
+        db_conn.delete_period_in_db(id)
+        else (req_id(ctx)) "Database error: {}"
+    )
+}

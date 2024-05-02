@@ -141,5 +141,5 @@ async fn get_scopes(context: &async_graphql::Context<'_>) -> async_graphql::Resu
             crate::logging::info!("No client id or secret, id: {id_ok}, secret: {secret_ok}");
             Ok(Scopes::new())
         }
-    }).await.map(Clone::clone)
+    }).await.cloned()
 }

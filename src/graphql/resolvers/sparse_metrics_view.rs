@@ -87,7 +87,7 @@ pub fn buckets_valid(range: std::ops::Range<f64>, step: f64) -> GraphQlResult<()
         Err(async_graphql::Error::new("start >= end"))
     } else if step <= 0.0 {
         Err(async_graphql::Error::new("step <= 0"))
-    } else if remainder_diff(range.end - range.start, step).abs() >= std::f64::EPSILON {
+    } else if remainder_diff(range.end - range.start, step).abs() >= f64::EPSILON {
         Err(async_graphql::Error::new("the range is not divisible by step"))
     } else if ((range.end - range.start) / step).round() > MAX_BUCKET_COUNT {
         Err(async_graphql::Error::new("too many buckets"))

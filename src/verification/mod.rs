@@ -6,10 +6,15 @@
 //! It may be eventually prudent to reimplement the filters to only run when for performance reasons.
 //! TODO: Profile this.
 
-use actix_web::http::header::{Header, TryIntoHeaderValue};
+use actix_web::http::header::{
+    Header,
+    HeaderName,
+    HeaderValue,
+    InvalidHeaderValue,
+    TryIntoHeaderValue,
+};
 use actix_web::error::ParseError;
 
-use reqwest::header::{HeaderValue, InvalidHeaderValue, HeaderName};
 use uuid::Uuid;
 
 pub mod id_secret;
