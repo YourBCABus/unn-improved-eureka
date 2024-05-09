@@ -191,6 +191,7 @@ mod setup {
         actix_cors::Cors::default()
             .allowed_origin("http://localhost:8080")
             .allowed_origin("https://tbj.yourbcabus.com")
+            .allowed_origin("https://tablejet.app")
             .allowed_methods(vec!["GET", "POST"])
             .allow_any_header()
     }
