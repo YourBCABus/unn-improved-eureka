@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 
 use crate::graphql::resolvers::{get_db, run_query};
-use crate::graphql::req_id;
+use crate::graphql::{get_school_id, req_id};
 
 use crate::graphql::structs::{GraphQlTeacherName, GraphQlPronounSet};
 use crate::types::Teacher;
@@ -18,6 +18,7 @@ pub async fn add_teacher(
     use crate::database::prepared::teacher::create_teacher as add_teacher_to_db;
 
     let mut db_conn = get_db!(ctx);
+    let school_id = get_school_id(ctx).await?;
 
     let teacher = Teacher::new(
         uuid::Uuid::new_v4(),
@@ -27,7 +28,7 @@ pub async fn add_teacher(
     let teacher_id = teacher.get_id();
 
     run_query!(
-        db_conn.add_teacher_to_db(teacher)
+        db_conn.add_teacher_to_db(school_id, teacher)
         else (req_id(ctx)) "Failed to add teacher under ID {teacher_id}: {}"
     )
 }

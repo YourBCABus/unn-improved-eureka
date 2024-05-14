@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                t.id, t.fully_absent,\n\n                p.id AS pro_id,\n                p.sub AS pro_sub, p.obj AS pro_obj,\n                p.pos_adj AS pro_pos_adj, p.pos_pro AS pro_pos_pro,\n                p.refx AS pro_refx, p.gramm_plu AS pro_gramm_plu,\n\n                n.name_of AS name_name_of,\n                n.honorific AS name_honorific,\n                n.first AS name_first, n.last AS name_last,\n                n.middle_texts AS name_middle_texts, n.middle_display AS name_middle_display\n            FROM teachers AS t\n                INNER JOIN pronoun_sets AS p ON t.pronouns = p.id\n                INNER JOIN names AS n ON t.id = n.name_of;\n        ",
+  "query": "\n            SELECT\n                t.id, t.fully_absent,\n\n                p.id AS pro_id,\n                p.sub AS pro_sub, p.obj AS pro_obj,\n                p.pos_adj AS pro_pos_adj, p.pos_pro AS pro_pos_pro,\n                p.refx AS pro_refx, p.gramm_plu AS pro_gramm_plu,\n\n                n.name_of AS name_name_of,\n                n.honorific AS name_honorific,\n                n.first AS name_first, n.last AS name_last,\n                n.middle_texts AS name_middle_texts, n.middle_display AS name_middle_display\n            FROM teachers AS t\n                INNER JOIN pronoun_sets AS p ON t.pronouns = p.id\n                INNER JOIN names AS n ON t.id = n.name_of\n            WHERE t.school_id = $1;\n        ",
   "describe": {
     "columns": [
       {
@@ -80,7 +80,9 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
@@ -100,5 +102,5 @@
       false
     ]
   },
-  "hash": "a70791a1eb4c206003ba8d29fbaa32e8d16f5aba55ad9a54df8b64e6ec95e5ca"
+  "hash": "dde2bfdf4f758b5b7f4320e155e39aecd11cbb38e9f8073f3a5c1eda66fe16f5"
 }

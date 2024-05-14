@@ -1,4 +1,8 @@
+
 macro_rules! define_scopes {
+    (<ALL_PUBLIC> $($public:vis $scopes:ident),+ $(,)?) => {
+        define_scopes! { $(pub $scopes),+ }
+    };
     ($($public:vis $scopes:ident),+ $(,)?) => {
         pub const SCOPES: &[&str] = &[$(stringify!($scopes)),+];
 

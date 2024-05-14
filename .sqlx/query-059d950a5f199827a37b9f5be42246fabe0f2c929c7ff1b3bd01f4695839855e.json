@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE config\n                SET sheet_id = $1\n                WHERE school_id = $2;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "059d950a5f199827a37b9f5be42246fabe0f2c929c7ff1b3bd01f4695839855e"
+}

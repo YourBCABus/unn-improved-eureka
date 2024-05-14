@@ -26,7 +26,6 @@ use async_graphql::{
 
 
 
-
 /// A Schema alias type used by the `GraphQLRequest` handler to run a GraphQL query.
 pub type Schema = GenericSchema<QueryRoot, MutationRoot, EmptySubscription>;
 
@@ -135,11 +134,84 @@ async fn get_scopes(context: &async_graphql::Context<'_>) -> async_graphql::Resu
         let id_ok = id.is_ok();
         let secret_ok = secret.is_ok();
 
+        let school_id = get_school_id(context).await?;
         if let (Ok(id), Ok(secret)) = (id, secret) {
-            Ok(client_allowed(id, secret, &mut db_pool).await.clone().unwrap_or_default())
+            Ok(client_allowed(
+                school_id,
+                id,
+                secret, 
+                &mut db_pool,
+            ).await.clone().unwrap_or_default())
         } else {
             crate::logging::info!("No client id or secret, id: {id_ok}, secret: {secret_ok}");
             Ok(Scopes::new())
         }
     }).await.cloned()
 }
+
+
+mod school_id {
+    use uuid::Uuid;
+
+    pub struct SchoolId(std::sync::RwLock<Uuid>);
+
+    impl std::fmt::Debug for SchoolId {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "SchoolId({})", self.inner())
+        }
+    }
+    
+    impl SchoolId {
+        pub fn new(id: Uuid) -> Self {
+            Self(std::sync::RwLock::new(id))
+        }
+    
+        fn inner(&self) -> Uuid {
+            self.0.try_read().map(|g| *g).unwrap_or_default()
+        }
+    
+        fn set(&self, id: Uuid) {
+            if let Ok(mut guard) = self.0.try_write() {
+                *guard = id;
+            }
+        }
+    }
+
+    pub async fn get_school_id(context: &async_graphql::Context<'_>) -> async_graphql::Result<Uuid> {
+        use async_graphql::Error as GraphQlError;
+    
+        let uuid = context.data::<SchoolId>().map(|id| id.inner())?;
+        if uuid.is_nil() {
+            let Ok(app_state) = context.data::<crate::state::AppState>() else {
+                let err = GraphQlError::new("Internal server error (App State)");
+                crate::logging::error!("{err:?}");
+                return Err(err);
+            };
+            let mut db_pool = match app_state.db().acquire().await {
+                Ok(db_pool) => db_pool,
+                Err(e) => {
+                    crate::logging::error!("DB Error: {e:?}");
+                    return Err(GraphQlError::new("Internal server error (DB)"));
+                },
+            };
+    
+            let Ok(default_school_id) = crate::database::prepared::config::get_default_school_id(&mut db_pool).await else {
+                return Err(async_graphql::Error::new("Failed to get school id"));
+            };
+
+            if let Ok(school_id) = context.data::<SchoolId>() {
+                school_id.set(default_school_id);
+            }
+
+            Ok(default_school_id)
+        } else {
+            Ok(uuid)
+        }
+    }
+
+    pub fn with_school_id(req: async_graphql::Request, school_id: Uuid) -> async_graphql::Request {
+        req.data(SchoolId::new(school_id))
+    }
+}
+
+pub use school_id::{ get_school_id, with_school_id };

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE config\n                SET attribs = $1\n                WHERE school_id = $2;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e5d7b95c0abbcc3460273486a78981c3f253bacdaaa2c08a8104f2775241d0f6"
+}

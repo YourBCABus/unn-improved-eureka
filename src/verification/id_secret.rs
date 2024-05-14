@@ -4,8 +4,8 @@ use crate::database::{self, Ctx};
 
 use super::scopes::Scopes;
 
-pub async fn client_allowed(client_id: Uuid, provided_secret: &[u8], ctx: &mut Ctx) -> Option<Scopes> {
-    let Ok(Some(secret)) = database::prepared::clients::get_client_secret(ctx, client_id).await else {
+pub async fn client_allowed(school_id: Uuid, client_id: Uuid, provided_secret: &[u8], ctx: &mut Ctx) -> Option<Scopes> {
+    let Ok(Some(secret)) = database::prepared::clients::get_client_secret(ctx, client_id, school_id).await else {
         return None;
     };
 

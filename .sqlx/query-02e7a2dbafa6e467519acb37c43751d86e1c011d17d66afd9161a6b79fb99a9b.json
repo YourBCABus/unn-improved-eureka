@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE config\n                SET report_to = $1\n                WHERE school_id = $2;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "02e7a2dbafa6e467519acb37c43751d86e1c011d17d66afd9161a6b79fb99a9b"
+}

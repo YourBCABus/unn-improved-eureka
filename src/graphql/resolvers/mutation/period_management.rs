@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 
 use crate::graphql::resolvers::{get_db, run_query};
-use crate::graphql::req_id;
+use crate::graphql::{get_school_id, req_id};
 
 use crate::graphql::structs::TimeRangeInput;
 use crate::types::Period;
@@ -20,9 +20,10 @@ pub async fn add_period(
     use crate::database::prepared::period::create_period as add_period_to_db;
 
     let mut db_conn = get_db!(ctx);
+    let school_id = get_school_id(ctx).await?;
 
     run_query!(
-        db_conn.add_period_to_db(&name, [default_time.start, default_time.end], is_temp)
+        db_conn.add_period_to_db(school_id, &name, [default_time.start, default_time.end], is_temp)
         else (req_id(ctx)) "Database error: {}"
     )
 }

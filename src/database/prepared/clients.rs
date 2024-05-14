@@ -5,15 +5,16 @@ use crate::verification::scopes::Scopes;
 use super::super::Ctx;
 use super::prepared_query;
 
-pub async fn get_client_secret(ctx: &mut Ctx, id: Uuid) -> Result<Option<String>, sqlx::Error> {
+pub async fn get_client_secret(ctx: &mut Ctx, client_id: Uuid, school_id: Uuid) -> Result<Option<String>, sqlx::Error> {
     let get_key_query = prepared_query!(
         r"
             SELECT client_key
             FROM clients
-            WHERE id = $1;
+            WHERE id = $1 AND school_id = $2;
         ";
         { client_key: String };
-        id
+        client_id,
+        school_id,
     );
 
     let res = get_key_query.fetch_optional(&mut **ctx).await?;

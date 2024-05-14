@@ -6,7 +6,7 @@ use sqlx::types::JsonValue;
 
 use crate::graphql::resolvers::attribs::Attribs;
 use crate::graphql::resolvers::{ensure_auth, get_db, run_query};
-use crate::graphql::req_id;
+use crate::graphql::{get_school_id, req_id};
 
 
 use async_graphql::Result as GraphQlResult;
@@ -79,14 +79,15 @@ pub async fn set_single_attrib(
     };
 
     let mut db_conn = get_db!(ctx);
+    let school_id = get_school_id(ctx).await?;
 
     run_query!(
-        db_conn.set_single_attrib_db(key, &new_value)
+        db_conn.set_single_attrib_db(school_id, key, &new_value)
         else (req_id(ctx)) "Database error: {}"
     )?;
 
     let map = run_query!(
-        db_conn.get_attribs_db()
+        db_conn.get_attribs_db(school_id)
         else (req_id(ctx)) "Database error: {}"
     )?;
 
@@ -103,14 +104,15 @@ pub async fn clear_single_attrib(
     };
 
     let mut db_conn = get_db!(ctx);
+    let school_id = get_school_id(ctx).await?;
 
     run_query!(
-        db_conn.clear_single_attrib_db(key)
+        db_conn.clear_single_attrib_db(school_id, key)
         else (req_id(ctx)) "Database error: {}"
     )?;
 
     let map = run_query!(
-        db_conn.get_attribs_db()
+        db_conn.get_attribs_db(school_id)
         else (req_id(ctx)) "Database error: {}"
     )?;
 
@@ -127,14 +129,15 @@ pub async fn set_attribs(
     };
 
     let mut db_conn = get_db!(ctx);
+    let school_id = get_school_id(ctx).await?;
 
     run_query!(
-        db_conn.set_attribs_db(attribs)
+        db_conn.set_attribs_db(school_id, attribs)
         else (req_id(ctx)) "Database error: {}"
     )?;
 
     let map = run_query!(
-        db_conn.get_attribs_db()
+        db_conn.get_attribs_db(school_id)
         else (req_id(ctx)) "Database error: {}"
     )?;
 

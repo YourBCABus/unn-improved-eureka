@@ -8,7 +8,7 @@ use async_graphql::{
 use uuid::Uuid;
 
 
-use crate::graphql::req_id;
+use crate::graphql::{get_school_id, req_id};
 use crate::types::{Period, Teacher};
 use crate::database::Ctx;
 use crate::logging::*;
@@ -42,9 +42,10 @@ impl Period {
         ensure_auth!(ctx, [read_teacher, read_teacher_absence]);
 
         let mut db_conn = get_db!(ctx);
+        let school_id = get_school_id(ctx).await?;
         let req_id = req_id(ctx);
 
-        let ids = TeacherList::get_by_period(req_id, self.id, &mut db_conn)
+        let ids = TeacherList::get_by_period(school_id, req_id, self.id, &mut db_conn)
             .await
             .map_err(|e| {
                 let e = e.to_string();
@@ -64,16 +65,16 @@ impl Period {
 
 
 #[derive(Debug, Clone)]
-pub struct TeacherList(Vec<Uuid>);
+pub struct TeacherList(Vec<Uuid>, Uuid);
 
 impl TeacherList {
-    pub async fn get_by_period(req_id: Uuid, period_id: Uuid, db: &mut Ctx) -> sqlx::Result<Self> {
+    pub async fn get_by_period(school_id: Uuid, req_id: Uuid, period_id: Uuid, db: &mut Ctx) -> sqlx::Result<Self> {
         use crate::database::prepared::absences::get_all_absences_for_period;
 
         trace!("{} - Getting absent teachers for period <{}>", fmt_req_id(req_id), period_id);
         let absences = get_all_absences_for_period(db, period_id).await?;
 
-        Ok(Self(absences.into_iter().map(|a| a.teacher).collect()))
+        Ok(Self(absences.into_iter().map(|a| a.teacher).collect(), school_id))
     }
 
     pub async fn get_teachers(self, req_id: Uuid, db: &mut Ctx) -> sqlx::Result<Vec<Teacher>> {
@@ -81,7 +82,7 @@ impl TeacherList {
         use crate::database::prepared::teacher::get_all_teachers;
 
         trace!("{} - Getting the {} teachers inside of this struct", fmt_req_id(req_id), self.0.len());
-        let mut teacher_map: HashMap<_, _> = get_all_teachers(db).await?
+        let mut teacher_map: HashMap<_, _> = get_all_teachers(db, self.1).await?
             .into_iter()
             .map(|teacher| (teacher.get_id(), teacher))
             .collect();

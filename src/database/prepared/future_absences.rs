@@ -194,7 +194,7 @@ fn get_packed_absence_state(future_day: BarebonesFutureDay, period_map: &HashMap
     })
 }
 
-pub async fn get_future_days_for_teacher(ctx: &mut Ctx, id: Uuid, start: NaiveDate, end: NaiveDate) -> Result<Vec<PackedAbsenceState>, sqlx::Error> {
+pub async fn get_future_days_for_teacher(ctx: &mut Ctx, school_id: Uuid, id: Uuid, start: NaiveDate, end: NaiveDate) -> Result<Vec<PackedAbsenceState>, sqlx::Error> {
     let start = start.signed_duration_since(NaiveDate::default()).num_days() as f64;
     let end = end.signed_duration_since(NaiveDate::default()).num_days() as f64;
 
@@ -218,7 +218,7 @@ pub async fn get_future_days_for_teacher(ctx: &mut Ctx, id: Uuid, start: NaiveDa
         end,
     );
 
-    let period_map: HashMap<_, _> = get_all_periods(ctx)
+    let period_map: HashMap<_, _> = get_all_periods(ctx, school_id)
         .await?
         .into_iter()
         .map(|period| (period.id, Arc::new(period)))
@@ -231,7 +231,7 @@ pub async fn get_future_days_for_teacher(ctx: &mut Ctx, id: Uuid, start: NaiveDa
         .collect()
 }
 
-pub async fn get_all_future_days(ctx: &mut Ctx, start: NaiveDate, end: NaiveDate) -> Result<Vec<TeacherAbsenceStateList>, sqlx::Error> {
+pub async fn get_all_future_days(ctx: &mut Ctx, school_id: Uuid, start: NaiveDate, end: NaiveDate) -> Result<Vec<TeacherAbsenceStateList>, sqlx::Error> {
     let start = start.signed_duration_since(NaiveDate::default()).num_days() as f64;
     let end = end.signed_duration_since(NaiveDate::default()).num_days() as f64;
 
@@ -247,14 +247,16 @@ pub async fn get_all_future_days(ctx: &mut Ctx, start: NaiveDate, end: NaiveDate
             FROM teacher_future_schedules as tfs
             WHERE
                 DATE '1/1/1970' + $1 * INTERVAL '1 day' <= tfs.date AND
-                tfs.date <= DATE '1/1/1970' + $2 * INTERVAL '1 day'
+                tfs.date <= DATE '1/1/1970' + $2 * INTERVAL '1 day' AND
+                (SELECT school_id FROM teachers WHERE id = tfs.teacher) = $3
             ORDER BY tfs.teacher;
         "#,
         start,
         end,
+        school_id,
     );
 
-    let period_map: HashMap<_, _> = get_all_periods(ctx)
+    let period_map: HashMap<_, _> = get_all_periods(ctx, school_id)
         .await?
         .into_iter()
         .map(|period| (period.id, Arc::new(period)))

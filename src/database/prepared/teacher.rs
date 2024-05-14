@@ -92,7 +92,7 @@ pub async fn get_teacher(ctx: &mut Ctx, id: Uuid) -> Result<Teacher, sqlx::Error
         .ok_or_else(|| sqlx::Error::ColumnNotFound(id.to_string()))
 }
 
-pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error> {
+pub async fn get_all_teachers(ctx: &mut Ctx, school_id: Uuid) -> Result<Vec<Teacher>, sqlx::Error> {
     let get_all_teachers_query = query_as!(
         SqlTeacherInfo,
         r#"
@@ -110,8 +110,10 @@ pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error
                 n.middle_texts AS name_middle_texts, n.middle_display AS name_middle_display
             FROM teachers AS t
                 INNER JOIN pronoun_sets AS p ON t.pronouns = p.id
-                INNER JOIN names AS n ON t.id = n.name_of;
+                INNER JOIN names AS n ON t.id = n.name_of
+            WHERE t.school_id = $1;
         "#,
+        school_id,
     );
 
     let teacher_info = get_all_teachers_query.fetch_all(&mut **ctx).await?;
@@ -122,7 +124,7 @@ pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error
 
 
 
-pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sqlx::Error> {
+pub async fn create_teacher(ctx: &mut Ctx, school_id: Uuid, input: Teacher) -> Result<Teacher, sqlx::Error> {
     let PronounSet {
         sub, object: obj,
         pos_adj, pos_pro,
@@ -174,8 +176,8 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
     );
 
     let add_teacher = query(r"
-        INSERT INTO teachers (id, pronouns)
-        VALUES ($1, $2);
+        INSERT INTO teachers (id, pronouns, school_id)
+        VALUES ($1, $2, $3);
     ");
 
 
@@ -183,7 +185,7 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
         
         let pronoun_set_id = add_pronoun_set.fetch_one(&mut **txn).await?.id;
 
-        add_teacher.bind(id).bind(pronoun_set_id).execute(&mut **txn).await?;
+        add_teacher.bind(id).bind(pronoun_set_id).bind(school_id).execute(&mut **txn).await?;
         
         add_name.execute(&mut **txn).await
     })).await?;
