@@ -1,6 +1,5 @@
 # Cargo Artifacts
 /target
-Cargo.lock
 
 # Generated Files
 schema.graphql
