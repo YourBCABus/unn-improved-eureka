@@ -11,6 +11,7 @@ use crate::types::{Teacher, TeacherName, PronounSet, Honorific};
 pub struct SqlTeacherInfo {
     id: Uuid,
     fully_absent: bool,
+    comments: Option<String>,
 
     #[allow(unused)]
     pro_id: Uuid,
@@ -44,6 +45,8 @@ impl From<SqlTeacherInfo> for Option<Teacher> {
             name_honorific,
             name_first, name_last,
             name_middle_texts, name_middle_display,
+
+            comments,
         } = sql;
         
 
@@ -58,7 +61,7 @@ impl From<SqlTeacherInfo> for Option<Teacher> {
             refx: pro_refx, gramm_plu: pro_gramm_plu,
         };
 
-        Some(Teacher::new(id, name, pronouns).with_fully_absence(fully_absent))
+        Some(Teacher::new(id, name, pronouns, comments).with_fully_absence(fully_absent))
     }
 }
 
@@ -67,7 +70,7 @@ pub async fn get_teacher(ctx: &mut Ctx, id: Uuid) -> Result<Teacher, sqlx::Error
         SqlTeacherInfo,
         r#"
             SELECT
-                t.id, t.fully_absent,
+                t.id, t.fully_absent, t.comments,
 
                 p.id AS pro_id,
                 p.sub AS pro_sub, p.obj AS pro_obj,
@@ -97,7 +100,7 @@ pub async fn get_all_teachers(ctx: &mut Ctx, school_id: Uuid) -> Result<Vec<Teac
         SqlTeacherInfo,
         r#"
             SELECT
-                t.id, t.fully_absent,
+                t.id, t.fully_absent, t.comments,
 
                 p.id AS pro_id,
                 p.sub AS pro_sub, p.obj AS pro_obj,
@@ -285,6 +288,22 @@ pub async fn update_teacher_full_absence(ctx: &mut Ctx, id: Uuid, fully_absent: 
     );
 
     update_absence.execute(&mut **ctx).await?;
+
+    get_teacher(ctx, id).await
+}
+
+pub async fn update_teacher_comments(ctx: &mut Ctx, id: Uuid, comments: Option<String>) -> sqlx::Result<Teacher> {
+    let update_comments = query!(
+        r#"
+            UPDATE teachers
+            SET comments = $2
+            WHERE id = $1;
+        "#,
+        id,
+        comments,
+    );
+
+    update_comments.execute(&mut **ctx).await?;
 
     get_teacher(ctx, id).await
 }

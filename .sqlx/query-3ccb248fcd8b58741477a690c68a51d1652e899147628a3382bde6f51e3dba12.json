@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                t.id, t.fully_absent,\n\n                p.id AS pro_id,\n                p.sub AS pro_sub, p.obj AS pro_obj,\n                p.pos_adj AS pro_pos_adj, p.pos_pro AS pro_pos_pro,\n                p.refx AS pro_refx, p.gramm_plu AS pro_gramm_plu,\n\n                n.name_of AS name_name_of,\n                n.honorific AS name_honorific,\n                n.first AS name_first, n.last AS name_last,\n                n.middle_texts AS name_middle_texts, n.middle_display AS name_middle_display\n            FROM teachers AS t\n                INNER JOIN pronoun_sets AS p ON t.pronouns = p.id\n                INNER JOIN names AS n ON t.id = n.name_of\n            WHERE t.school_id = $1;\n        ",
+  "query": "\n            SELECT\n                t.id, t.fully_absent, t.comments,\n\n                p.id AS pro_id,\n                p.sub AS pro_sub, p.obj AS pro_obj,\n                p.pos_adj AS pro_pos_adj, p.pos_pro AS pro_pos_pro,\n                p.refx AS pro_refx, p.gramm_plu AS pro_gramm_plu,\n\n                n.name_of AS name_name_of,\n                n.honorific AS name_honorific,\n                n.first AS name_first, n.last AS name_last,\n                n.middle_texts AS name_middle_texts, n.middle_display AS name_middle_display\n            FROM teachers AS t\n                INNER JOIN pronoun_sets AS p ON t.pronouns = p.id\n                INNER JOIN names AS n ON t.id = n.name_of\n                WHERE t.id = $1;\n        ",
   "describe": {
     "columns": [
       {
@@ -15,66 +15,71 @@
       },
       {
         "ordinal": 2,
+        "name": "comments",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
         "name": "pro_id",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "pro_sub",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "pro_obj",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "pro_pos_adj",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "pro_pos_pro",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "pro_refx",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "pro_gramm_plu",
         "type_info": "Bool"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "name_name_of",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "name_honorific",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "name_first",
         "type_info": "Text"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "name_last",
         "type_info": "Text"
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "name_middle_texts",
         "type_info": "TextArray"
       },
       {
-        "ordinal": 14,
+        "ordinal": 15,
         "name": "name_middle_display",
         "type_info": "BoolArray"
       }
@@ -87,6 +92,7 @@
     "nullable": [
       false,
       false,
+      true,
       false,
       false,
       false,
@@ -102,5 +108,5 @@
       false
     ]
   },
-  "hash": "dde2bfdf4f758b5b7f4320e155e39aecd11cbb38e9f8073f3a5c1eda66fe16f5"
+  "hash": "3ccb248fcd8b58741477a690c68a51d1652e899147628a3382bde6f51e3dba12"
 }
