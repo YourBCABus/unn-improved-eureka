@@ -78,7 +78,12 @@ macro_rules! ensure_auth {
     ($ctx:ident, [$($scopes:ident),+]) => {
         {
             $crate::logging::trace!("Getting scopes...");
-            let scopes = $crate::graphql::get_scopes($ctx).await?;
+            let (id_secret_scopes, id_token_scopes) = tokio::try_join! {
+                $crate::graphql::get_scopes_id_secret($ctx),
+                $crate::graphql::get_scopes_id_token($ctx),
+            }?;
+
+            let scopes = id_secret_scopes | id_token_scopes;
             $(
                 if !scopes.$scopes && !scopes.admin {
                     return Err(async_graphql::Error::new("Unauthorized"));

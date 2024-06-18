@@ -18,7 +18,7 @@ macro_rules! define_scopes {
         }
 
         paste::paste! {
-            #[derive(Debug, Clone, PartialEq, Eq)]
+            #[derive(Debug, Clone, Copy, PartialEq, Eq)]
             pub struct Scopes {
                 $(pub [<$scopes:snake>]: bool),+
             }
@@ -128,12 +128,12 @@ macro_rules! define_scopes {
 
 define_scopes!(
     // Read scopes
-    pub read_teacher,
-    pub read_teacher_name,
-    pub read_teacher_pronouns,
-    pub read_teacher_absence,
+    read_teacher,
+    read_teacher_name,
+    read_teacher_pronouns,
+    read_teacher_absence,
 
-    pub read_period,
+    read_period,
 
 
     // Write scopes

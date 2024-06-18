@@ -37,3 +37,25 @@ pub async fn get_client_scopes(ctx: &mut Ctx, id: Uuid) -> Result<Option<Scopes>
 
     Ok(res.and_then(|scopes| Scopes::try_from_str(&scopes.scopes)))
 }
+
+pub async fn get_google_client_scopes(ctx: &mut Ctx) -> Result<Scopes, sqlx::Error> {
+    let get_scopes_query = prepared_query!(
+        r"
+            SELECT scopes
+            FROM clients
+            WHERE is_google = true;
+        ";
+        { scopes: String };
+    );
+
+    
+    let res = get_scopes_query.fetch_one(&mut **ctx).await?;
+
+    let Some(scopes) = Scopes::try_from_str(&res.scopes) else {
+        return Err(sqlx::Error::Decode(Box::new(sqlx::error::Error::Protocol(
+            format!("Invalid format for `Scopes` in database: {}", res.scopes),
+        ))));
+    };
+
+    Ok(scopes)
+}

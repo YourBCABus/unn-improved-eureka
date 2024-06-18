@@ -2,8 +2,8 @@ use actix_web::web::Header;
 use actix_web::{HttpServer, web, HttpResponse, http::header::ContentType, Responder};
 
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
-use improved_eureka::verification::{ClientSecretHeader, ClientIdHeader};
-use improved_eureka::graphql::{ Schema, with_school_id };
+use improved_eureka::verification::{ClientIdHeader, ClientSecretHeader, IdTokenHeader};
+use improved_eureka::graphql::{ with_school_id, IdSecretScopes, IdTokenScopes, Schema };
 
 use improved_eureka::logging::*;
 
@@ -45,11 +45,13 @@ async fn graphql_handler_default(
 
     client_id: Option<Header<ClientIdHeader>>,
     client_secret: Option<Header<ClientSecretHeader>>,
+    id_token: Option<Header<IdTokenHeader>>,
 ) -> GraphQLResponse {
     let request = augment_request(
         request.into_inner(),
         client_id,
         client_secret,
+        id_token,
         Uuid::nil(),
     ).await;
     schema.execute(request).await.into()
@@ -69,11 +71,13 @@ async fn graphql_handler(
 
     client_id: Option<Header<ClientIdHeader>>,
     client_secret: Option<Header<ClientSecretHeader>>,
+    id_token: Option<Header<IdTokenHeader>>,
 ) -> GraphQLResponse {
     let request = augment_request(
         request.into_inner(),
         client_id,
         client_secret,
+        id_token,
         info.into_inner(),
     ).await;
     schema.execute(request).await.into()
@@ -84,15 +88,22 @@ pub async fn augment_request(
     request: async_graphql::Request,
     client_id: Option<Header<ClientIdHeader>>,
     client_secret: Option<Header<ClientSecretHeader>>,
+    id_token: Option<Header<IdTokenHeader>>,
     school_id: Uuid,
 ) -> async_graphql::Request {
     use tokio::sync::OnceCell;
-    use improved_eureka::verification::scopes::Scopes;
-    let scopes_once_cell: OnceCell<Scopes> = OnceCell::new();
-    let request = request.data(scopes_once_cell);
+    let request = request
+        .data(OnceCell::<IdSecretScopes>::new())
+        .data(OnceCell::<IdTokenScopes>::new());
 
     let request = if let (Some(id), Some(secret)) = (client_id, client_secret) {
         request.data(id.0).data(secret.0)
+    } else {
+        request
+    };
+
+    let request = if let Some(id_token) = id_token {
+        request.data(id_token.0)
     } else {
         request
     };

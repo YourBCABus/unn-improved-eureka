@@ -10,6 +10,7 @@ pub mod structs;
 pub mod resolvers;
 
 
+use crate::verification::google::user_allowed;
 use crate::env::graphql_complexity_limit_usize_panic;
 use crate::state::AppState;
 
@@ -100,7 +101,10 @@ fn req_id(context: &async_graphql::Context) -> uuid::Uuid {
     }
 }
 
-async fn get_scopes(context: &async_graphql::Context<'_>) -> async_graphql::Result<crate::verification::scopes::Scopes> {
+pub struct IdSecretScopes(crate::verification::scopes::Scopes);
+pub struct IdTokenScopes(crate::verification::scopes::Scopes);
+
+async fn get_scopes_id_secret(context: &async_graphql::Context<'_>) -> async_graphql::Result<crate::verification::scopes::Scopes> {
     use crate::verification::{
         ClientIdHeader, ClientSecretHeader,
         scopes::Scopes, id_secret::client_allowed,
@@ -109,7 +113,7 @@ async fn get_scopes(context: &async_graphql::Context<'_>) -> async_graphql::Resu
     use async_graphql::Error as GraphQlError;
 
 
-    let Ok(scopes_cell) = context.data::<OnceCell<Scopes>>() else {
+    let Ok(scopes_cell) = context.data::<OnceCell<IdSecretScopes>>() else {
         crate::logging::error!("OnceCell Missing from context!");
         return Ok(Scopes::new());
     };
@@ -136,17 +140,73 @@ async fn get_scopes(context: &async_graphql::Context<'_>) -> async_graphql::Resu
 
         let school_id = get_school_id(context).await?;
         if let (Ok(id), Ok(secret)) = (id, secret) {
-            Ok(client_allowed(
+            match client_allowed(
                 school_id,
                 id,
                 secret, 
                 &mut db_pool,
-            ).await.clone().unwrap_or_default())
+            ).await {
+                Some(scopes) => Ok(IdSecretScopes(scopes)),
+                None => {
+                    crate::logging::error!("Client not allowed");
+                    Ok(IdSecretScopes(Scopes::new()))
+                },
+            }
         } else {
             crate::logging::info!("No client id or secret, id: {id_ok}, secret: {secret_ok}");
-            Ok(Scopes::new())
+            Ok(IdSecretScopes(Scopes::new()))
         }
-    }).await.cloned()
+    }).await.map(|scopes| scopes.0)
+}
+
+async fn get_scopes_id_token(context: &async_graphql::Context<'_>) -> async_graphql::Result<crate::verification::scopes::Scopes> {
+    use crate::verification::{
+        scopes::Scopes,
+        IdTokenHeader,
+    };
+    use tokio::sync::OnceCell;
+    use async_graphql::Error as GraphQlError;
+
+
+    let Ok(scopes_cell) = context.data::<OnceCell<IdTokenScopes>>() else {
+        crate::logging::error!("OnceCell Missing from context!");
+        return Ok(Scopes::new());
+    };
+
+    scopes_cell.get_or_try_init(|| async {
+        let Ok(app_state) = context.data::<crate::state::AppState>() else {
+            let err = GraphQlError::new("Internal server error (App State)");
+            crate::logging::error!("{err:?}");
+            return Err(err);
+        };
+        let mut db_pool = match app_state.db().acquire().await {
+            Ok(db_pool) => db_pool,
+            Err(e) => {
+                crate::logging::error!("DB Error: {e:?}");
+                return Err(GraphQlError::new("Internal server error (DB)"));
+            },
+        };
+
+        let id_token = context.data::<IdTokenHeader>();
+
+        // TODO: Gate to schools
+        let school_id = get_school_id(context).await?;
+        if let Ok(id_token) = id_token {
+            match user_allowed(
+                &mut db_pool,
+                id_token.clone(),
+            ).await  {
+                Some(scopes) => Ok(IdTokenScopes(scopes)),
+                None => {
+                    crate::logging::error!("User not allowed");
+                    Ok(IdTokenScopes(Scopes::new()))
+                },
+            }
+        } else {
+            crate::logging::info!("No user ID token");
+            Ok(IdTokenScopes(Scopes::new()))
+        }
+    }).await.map(|scopes| scopes.0)
 }
 
 
