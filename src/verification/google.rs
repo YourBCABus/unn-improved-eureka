@@ -83,8 +83,6 @@ pub async fn user_allowed(ctx: &mut Ctx, id_token: IdTokenHeader) -> Option<Scop
 
     // TODO: Remove this hardcoding
     const WHITELIST: &[&str] = &[
-        "ricecrispieismyname@gmail.com",
-        "skyler@rivet.gg",
     ];
     
     let is_bergen = user_data.email.ends_with("@bergen.org");
