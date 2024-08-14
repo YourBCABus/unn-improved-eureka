@@ -1,4 +1,5 @@
 use jsonwebtoken::jwk::JwkSet;
+use uuid::Uuid;
 
 use crate::database::{self, Ctx};
 use crate::logging::*;
@@ -75,21 +76,15 @@ async fn get_user_data(id_token: IdTokenHeader) -> Result<RelevantUserInfo, Stri
     }
 }
 
-pub async fn user_allowed(ctx: &mut Ctx, id_token: IdTokenHeader) -> Option<Scopes> {
-    let Ok(google_client_scopes) = database::prepared::clients::get_google_client_scopes(ctx).await else {
-        return None;
-    };
+pub async fn user_allowed(ctx: &mut Ctx, id_token: IdTokenHeader, school_id: Uuid) -> Option<Scopes> {
+    use database::prepared::clients::get_google_client_scopes as google_scopes;
+    use database::prepared::clients::get_school_email_regexes as email_regexes;
+
     let user_data = get_user_data(id_token).await.ok()?;
+    let google_client_scopes = google_scopes(ctx, school_id).await.ok()?;
+    let email_regexes = email_regexes(ctx, school_id).await.ok()?;
 
-    // TODO: Remove this hardcoding
-    const WHITELIST: &[&str] = &[
-    ];
-    
-    let is_bergen = user_data.email.ends_with("@bergen.org");
-    let is_whitelisted = WHITELIST.iter().any(|&email| user_data.email == email);
-
-    let is_allowed = is_bergen || is_whitelisted;
-
+    let is_allowed = email_regexes.iter().any(|regex| regex.is_match(&user_data.email));
     if is_allowed && user_data.email_verified {
         Some(google_client_scopes)
     } else {

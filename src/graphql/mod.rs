@@ -195,6 +195,7 @@ async fn get_scopes_id_token(context: &async_graphql::Context<'_>) -> async_grap
             match user_allowed(
                 &mut db_pool,
                 id_token.clone(),
+                school_id,
             ).await  {
                 Some(scopes) => Ok(IdTokenScopes(scopes)),
                 None => {

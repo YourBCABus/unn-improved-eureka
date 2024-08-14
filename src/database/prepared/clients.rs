@@ -1,6 +1,8 @@
+use regex::Regex;
 use uuid::Uuid;
 
 use crate::verification::scopes::Scopes;
+use crate::logging::*;
 
 use super::super::Ctx;
 use super::prepared_query;
@@ -38,14 +40,18 @@ pub async fn get_client_scopes(ctx: &mut Ctx, id: Uuid) -> Result<Option<Scopes>
     Ok(res.and_then(|scopes| Scopes::try_from_str(&scopes.scopes)))
 }
 
-pub async fn get_google_client_scopes(ctx: &mut Ctx) -> Result<Scopes, sqlx::Error> {
+
+pub async fn get_google_client_scopes(ctx: &mut Ctx, school_id: Uuid) -> Result<Scopes, sqlx::Error> {
     let get_scopes_query = prepared_query!(
         r"
             SELECT scopes
             FROM clients
-            WHERE is_google = true;
+            WHERE
+                is_google AND
+                school_id = $1;
         ";
         { scopes: String };
+        school_id
     );
 
     
@@ -58,4 +64,32 @@ pub async fn get_google_client_scopes(ctx: &mut Ctx) -> Result<Scopes, sqlx::Err
     };
 
     Ok(scopes)
+}
+
+pub async fn get_school_email_regexes(ctx: &mut Ctx, school_id: Uuid) -> Result<Vec<Regex>, sqlx::Error> {
+    let get_regexes_query = prepared_query!(
+        r"
+            SELECT email_regexes
+            FROM google_emails
+            WHERE school_id = $1;
+        ";
+        { email_regexes: Vec<String> };
+        school_id
+    );
+
+    
+    let res = get_regexes_query.fetch_one(&mut **ctx).await?;
+
+    let mut regexes = Vec::with_capacity(res.email_regexes.len());
+    for regex in res.email_regexes {
+        match Regex::new(&regex) {
+            Ok(regex) => regexes.push(regex),
+            Err(err) => return Err(sqlx::Error::Decode(Box::new(sqlx::error::Error::Protocol({
+                debug!("Invalid regex in database: (regex {regex}), (err {err})");
+                "Invalid regex in database".to_string()
+            })))),
+        }
+    }
+
+    Ok(regexes)
 }
