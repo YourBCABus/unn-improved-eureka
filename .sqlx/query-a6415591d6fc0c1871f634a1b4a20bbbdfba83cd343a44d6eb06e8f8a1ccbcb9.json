@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                tfs.teacher as teacher_id,\n                EXTRACT(EPOCH FROM date)::float / 86400 as \"date!\",\n                periods,\n                fully_absent,\n                comment\n            FROM teacher_future_schedules as tfs\n            WHERE\n                DATE '1/1/1970' + $1 * INTERVAL '1 day' <= tfs.date AND\n                tfs.date <= DATE '1/1/1970' + $2 * INTERVAL '1 day'\n            ORDER BY tfs.teacher;\n        ",
+  "query": "\n            SELECT\n                tfs.teacher as teacher_id,\n                EXTRACT(EPOCH FROM date)::float / 86400 as \"date!\",\n                periods,\n                fully_absent,\n                comment\n            FROM teacher_future_schedules as tfs\n            WHERE\n                DATE '1/1/1970' + $1 * INTERVAL '1 day' <= tfs.date AND\n                tfs.date <= DATE '1/1/1970' + $2 * INTERVAL '1 day' AND\n                (SELECT school_id FROM teachers WHERE id = tfs.teacher) = $3\n            ORDER BY tfs.teacher;\n        ",
   "describe": {
     "columns": [
       {
@@ -32,7 +32,8 @@
     "parameters": {
       "Left": [
         "Float8",
-        "Float8"
+        "Float8",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -43,5 +44,5 @@
       true
     ]
   },
-  "hash": "6fa5470c8cccc69652ea077a22095df5ef8f48036b6dca08db03476d308dd53b"
+  "hash": "a6415591d6fc0c1871f634a1b4a20bbbdfba83cd343a44d6eb06e8f8a1ccbcb9"
 }

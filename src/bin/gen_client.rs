@@ -4,6 +4,13 @@ use improved_eureka::verification::{id_secret::generate_client_keystr, scopes::S
 use rpassword::read_password;
 
 fn main() {
+    print!("Enter the school ID (UUID): ");
+    std::io::stdout().flush().unwrap();
+
+    let mut school_id = String::new();
+    std::io::stdin().read_line(&mut school_id).unwrap();
+    let school_id = uuid::Uuid::parse_str(school_id.trim()).unwrap();
+
     print!("Enter the client secret (not shown): ");
     std::io::stdout().flush().unwrap();
 
@@ -60,8 +67,13 @@ fn main() {
 
     println!("Run the following SQL query:");
     println!();
-    println!("INSERT INTO clients (id, client_key, scopes, description)");
-    println!("VALUES ('{}', '{keystr}', '{}', '{name}');", client_id.as_hyphenated(), scopes.to_string());
+    println!("INSERT INTO clients (id, client_key, scopes, description, school_id)");
+    println!(
+        "VALUES ('{}', '{keystr}', '{}', '{name}', '{}');",
+        client_id.as_hyphenated(),
+        scopes.to_string(),
+        school_id.as_hyphenated(),
+    );
     println!();
     println!();
     println!("Then, add the following to the .env file:");

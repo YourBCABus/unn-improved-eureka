@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE config\n            SET attribs = jsonb_set_lax(attribs, $1, null, true, 'delete_key')\n            WHERE school_id = $2;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b91bb50de10ec2d15c139971c81952a5dbbdc3d9894eafacb6b6630eb1207184"
+}

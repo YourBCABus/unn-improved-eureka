@@ -32,7 +32,7 @@ pub async fn get_period(ctx: &mut Ctx, id: Uuid) -> Result<Period, sqlx::Error> 
     get_period_query.fetch_one(&mut **ctx).await
 }
 
-pub async fn get_all_periods(ctx: &mut Ctx) -> Result<Vec<Period>, sqlx::Error> {
+pub async fn get_all_periods(ctx: &mut Ctx, school_id: Uuid) -> Result<Vec<Period>, sqlx::Error> {
     let get_all_periods_query = query_as!(
         Period,
         r#"
@@ -48,28 +48,32 @@ pub async fn get_all_periods(ctx: &mut Ctx) -> Result<Vec<Period>, sqlx::Error> 
                 EXTRACT(EPOCH FROM temp_end)::float as temp_end,
 
                 is_temp
-            FROM periods;
+            FROM periods
+            WHERE school_id = $1;
         "#,
+        school_id,
     );
 
     get_all_periods_query.fetch_all(&mut **ctx).await
 }
 
-pub async fn create_period(ctx: &mut Ctx, name: &str, time_range: [f64; 2], temp: bool) -> Result<Period, sqlx::Error> {
+pub async fn create_period(ctx: &mut Ctx, school_id: Uuid, name: &str, time_range: [f64; 2], temp: bool) -> Result<Period, sqlx::Error> {
     let add_period = prepared_query!(
         r#"
-            INSERT INTO periods (id, name, start_time, end_time, is_temp)
+            INSERT INTO periods (id, name, start_time, end_time, is_temp, school_id)
             VALUES (
                 uuid_generate_v4(), $1,
                 TIME '00:00' + $2 * INTERVAL '1 second',
                 TIME '00:00' + $3 * INTERVAL '1 second',
-                $4
+                $4,
+                $5
             ) RETURNING id AS "id: _";
         "#;
         { id: Uuid };
         name,
         time_range[0], time_range[1],
         temp,
+        school_id,
     );
     
     let id = add_period.fetch_one(&mut **ctx).await?.id;

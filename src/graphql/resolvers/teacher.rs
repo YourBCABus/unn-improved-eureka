@@ -1,6 +1,7 @@
 use async_graphql::Object;
 use async_graphql::{ Error as GraphQlError, Result as GraphQlResult, Context };
 
+use crate::graphql::get_school_id;
 use crate::types::{Teacher, PronounSet, TeacherName, Period};
 
 use super::{ get_db, ensure_auth };
@@ -40,8 +41,9 @@ impl Teacher {
         ensure_auth!(ctx, [read_teacher_absence, read_period]);
 
         let mut db_conn = get_db!(ctx);
+        let school_id = get_school_id(ctx).await?;
 
-        let ids = PeriodList::get_by_teacher(self.get_id(), &mut db_conn)
+        let ids = PeriodList::get_by_teacher(school_id, self.get_id(), &mut db_conn)
             .await
             .map_err(|e| {
                 let e = e.to_string();
@@ -61,30 +63,36 @@ impl Teacher {
 
         Ok(self.get_fully_absent())
     }
+
+    async fn comments(&self, ctx: &Context<'_>) -> GraphQlResult<Option<&str>> {
+        ensure_auth!(ctx, [read_teacher_absence]);
+
+        Ok(self.get_comments())
+    }
 }
 
 
 
 #[derive(Debug, Clone)]
-pub struct PeriodList(Vec<Uuid>);
+pub struct PeriodList(Vec<Uuid>, Uuid);
 
 
 use crate::database::Ctx;
 
 impl PeriodList {
-    pub async fn get_by_teacher(period_id: Uuid, db: &mut Ctx) -> sqlx::Result<Self> {
+    pub async fn get_by_teacher(school_id: Uuid, period_id: Uuid, db: &mut Ctx) -> sqlx::Result<Self> {
         use crate::database::prepared::absences::get_all_absences_for_teacher;
 
         let absences = get_all_absences_for_teacher(db, period_id).await?;
 
-        Ok(PeriodList(absences.into_iter().map(|a| a.period).collect()))
+        Ok(PeriodList(absences.into_iter().map(|a| a.period).collect(), school_id))
     }
 
     pub async fn get_periods(self, db: &mut Ctx) -> sqlx::Result<Vec<Period>> {
         use std::collections::HashMap;
         use crate::database::prepared::period::get_all_periods;
 
-        let mut period_map: HashMap<_, _> = get_all_periods(db).await?
+        let mut period_map: HashMap<_, _> = get_all_periods(db, self.1).await?
             .into_iter()
             .map(|period| (period.id, period))
             .collect();

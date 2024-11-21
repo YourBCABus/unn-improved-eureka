@@ -7,6 +7,7 @@
 
 use crate::database::prepared::privileges::get_privileges;
 
+use crate::graphql::get_school_id;
 use crate::graphql::req_id;
 use crate::metrics::SparseMetricsView;
 use crate::types::Privileges;
@@ -72,8 +73,9 @@ impl QueryRoot {
         ensure_auth!(ctx, [read_teacher]);
 
         let mut db_conn = get_db!(ctx);
+        let school_id = get_school_id(ctx).await?;
 
-        get_all_teachers_from_db(&mut db_conn)
+        get_all_teachers_from_db(&mut db_conn, school_id)
             .await
             .map_err(|e| {
                 if matches!(e, sqlx::Error::RowNotFound) {
@@ -118,6 +120,7 @@ impl QueryRoot {
         ensure_auth!(ctx, [read_teacher, admin, experimental]);
 
         let mut db_conn = get_db!(ctx);
+        let school_id = get_school_id(ctx).await?;
 
         let oauth_res = run_query!(
             db_conn.check_oauth_db(id, provider, sub)
@@ -128,7 +131,7 @@ impl QueryRoot {
         }
 
         run_query!(
-            db_conn.get_futures_from_db(id, start, end)
+            db_conn.get_futures_from_db(school_id, id, start, end)
             else (req_id(ctx)) "Failed to get teacher future absence data from database: {}"
         )
     }
@@ -146,6 +149,7 @@ impl QueryRoot {
         ensure_auth!(ctx, [read_teacher, admin, experimental]);
 
         let mut db_conn = get_db!(ctx);
+        let school_id = get_school_id(ctx).await?;
 
         let teacher = run_query!(
             db_conn.get_teacher_db(provider.clone(), sub.clone())
@@ -161,7 +165,7 @@ impl QueryRoot {
         }
 
         run_query!(
-            db_conn.get_all_futures_from_db(start, end)
+            db_conn.get_all_futures_from_db(school_id, start, end)
             else (req_id(ctx)) "Failed to get teacher absence data from database: {}"
         )
     }
@@ -175,8 +179,9 @@ impl QueryRoot {
         ensure_auth!(ctx, [read_period]);
 
         let mut db_conn = get_db!(ctx);
+        let school_id = get_school_id(ctx).await?;
 
-        get_all_periods_from_db(&mut db_conn)
+        get_all_periods_from_db(&mut db_conn, school_id)
             .await
             .map_err(|e| {
                 if matches!(e, sqlx::Error::RowNotFound) {
@@ -224,9 +229,10 @@ impl QueryRoot {
         ensure_auth!(ctx, [read_period, read_teacher, read_teacher_name, read_teacher_absence, read_teacher_pronouns]);
 
         let mut db_conn = get_db!(ctx);
+        let school_id = get_school_id(ctx).await?;
 
         run_query!(
-            db_conn.get_sheet_id_from_db()
+            db_conn.get_sheet_id_from_db(school_id)
             else (req_id(ctx)) "Failed to get spreadsheet id from database: {}"
         )
     }
@@ -240,9 +246,10 @@ impl QueryRoot {
         ensure_auth!(ctx, [read_teacher, read_period]);
 
         let mut db_conn = get_db!(ctx);
+        let school_id = get_school_id(ctx).await?;
 
         run_query!(
-            db_conn.get_report_to_from_db()
+            db_conn.get_report_to_from_db(school_id)
             else (req_id(ctx)) "Failed to get \"report to\" location from database: {}"
         )
     }
@@ -272,9 +279,12 @@ impl QueryRoot {
     async fn attribs(&self, ctx: &Context<'_>) -> GraphQlResult<super::attribs::Attribs> {
         use crate::database::prepared::config::get_attribs as get_attribs_from_db;
 
+        // ensure_auth!(ctx, [read_config]);
         let mut db_conn = get_db!(ctx);
+        let school_id = get_school_id(ctx).await?;
+
         let attribs_inner = run_query!(
-            db_conn.get_attribs_from_db()
+            db_conn.get_attribs_from_db(school_id)
             else (req_id(ctx)) "Failed to get attribs from database: {}"
         )?;
 

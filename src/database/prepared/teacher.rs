@@ -11,6 +11,7 @@ use crate::types::{Teacher, TeacherName, PronounSet, Honorific};
 pub struct SqlTeacherInfo {
     id: Uuid,
     fully_absent: bool,
+    comments: Option<String>,
 
     #[allow(unused)]
     pro_id: Uuid,
@@ -44,6 +45,8 @@ impl From<SqlTeacherInfo> for Option<Teacher> {
             name_honorific,
             name_first, name_last,
             name_middle_texts, name_middle_display,
+
+            comments,
         } = sql;
         
 
@@ -58,7 +61,7 @@ impl From<SqlTeacherInfo> for Option<Teacher> {
             refx: pro_refx, gramm_plu: pro_gramm_plu,
         };
 
-        Some(Teacher::new(id, name, pronouns).with_fully_absence(fully_absent))
+        Some(Teacher::new(id, name, pronouns, comments).with_fully_absence(fully_absent))
     }
 }
 
@@ -67,7 +70,7 @@ pub async fn get_teacher(ctx: &mut Ctx, id: Uuid) -> Result<Teacher, sqlx::Error
         SqlTeacherInfo,
         r#"
             SELECT
-                t.id, t.fully_absent,
+                t.id, t.fully_absent, t.comments,
 
                 p.id AS pro_id,
                 p.sub AS pro_sub, p.obj AS pro_obj,
@@ -92,12 +95,12 @@ pub async fn get_teacher(ctx: &mut Ctx, id: Uuid) -> Result<Teacher, sqlx::Error
         .ok_or_else(|| sqlx::Error::ColumnNotFound(id.to_string()))
 }
 
-pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error> {
+pub async fn get_all_teachers(ctx: &mut Ctx, school_id: Uuid) -> Result<Vec<Teacher>, sqlx::Error> {
     let get_all_teachers_query = query_as!(
         SqlTeacherInfo,
         r#"
             SELECT
-                t.id, t.fully_absent,
+                t.id, t.fully_absent, t.comments,
 
                 p.id AS pro_id,
                 p.sub AS pro_sub, p.obj AS pro_obj,
@@ -110,8 +113,10 @@ pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error
                 n.middle_texts AS name_middle_texts, n.middle_display AS name_middle_display
             FROM teachers AS t
                 INNER JOIN pronoun_sets AS p ON t.pronouns = p.id
-                INNER JOIN names AS n ON t.id = n.name_of;
+                INNER JOIN names AS n ON t.id = n.name_of
+            WHERE t.school_id = $1;
         "#,
+        school_id,
     );
 
     let teacher_info = get_all_teachers_query.fetch_all(&mut **ctx).await?;
@@ -122,7 +127,7 @@ pub async fn get_all_teachers(ctx: &mut Ctx) -> Result<Vec<Teacher>, sqlx::Error
 
 
 
-pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sqlx::Error> {
+pub async fn create_teacher(ctx: &mut Ctx, school_id: Uuid, input: Teacher) -> Result<Teacher, sqlx::Error> {
     let PronounSet {
         sub, object: obj,
         pos_adj, pos_pro,
@@ -174,8 +179,8 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
     );
 
     let add_teacher = query(r"
-        INSERT INTO teachers (id, pronouns)
-        VALUES ($1, $2);
+        INSERT INTO teachers (id, pronouns, school_id)
+        VALUES ($1, $2, $3);
     ");
 
 
@@ -183,7 +188,7 @@ pub async fn create_teacher(ctx: &mut Ctx, input: Teacher) -> Result<Teacher, sq
         
         let pronoun_set_id = add_pronoun_set.fetch_one(&mut **txn).await?.id;
 
-        add_teacher.bind(id).bind(pronoun_set_id).execute(&mut **txn).await?;
+        add_teacher.bind(id).bind(pronoun_set_id).bind(school_id).execute(&mut **txn).await?;
         
         add_name.execute(&mut **txn).await
     })).await?;
@@ -283,6 +288,22 @@ pub async fn update_teacher_full_absence(ctx: &mut Ctx, id: Uuid, fully_absent: 
     );
 
     update_absence.execute(&mut **ctx).await?;
+
+    get_teacher(ctx, id).await
+}
+
+pub async fn update_teacher_comments(ctx: &mut Ctx, id: Uuid, comments: Option<String>) -> sqlx::Result<Teacher> {
+    let update_comments = query!(
+        r#"
+            UPDATE teachers
+            SET comments = $2
+            WHERE id = $1;
+        "#,
+        id,
+        comments,
+    );
+
+    update_comments.execute(&mut **ctx).await?;
 
     get_teacher(ctx, id).await
 }
