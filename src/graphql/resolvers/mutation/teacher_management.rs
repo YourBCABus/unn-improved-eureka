@@ -23,7 +23,6 @@ pub async fn add_teacher(
         uuid::Uuid::new_v4(),
         name.into(),
         pronouns.into(),
-        None,
     );
     let teacher_id = teacher.get_id();
 
@@ -61,20 +60,5 @@ pub async fn update_teacher_pronouns(
     run_query!(
         db_conn.update_teacher_pronouns_in_db(id, pronouns.into())
         else (req_id(ctx)) "Failed to update pronouns of teacher {id}: {}"
-    )
-}
-
-pub async fn update_teacher_comments(
-    ctx: &Context<'_>,
-    id: Uuid,
-    comments: Option<String>,
-) -> GraphQlResult<Teacher> {
-    use crate::database::prepared::teacher::update_teacher_comments as update_teacher_comments_in_db;
-
-    let mut db_conn = get_db!(ctx);
-
-    run_query!(
-        db_conn.update_teacher_comments_in_db(id, comments)
-        else (req_id(ctx)) "Failed to update comments of teacher {id}: {}"
     )
 }

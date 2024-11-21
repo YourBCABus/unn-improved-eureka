@@ -91,17 +91,6 @@ impl MutationRoot {
         )
     }
 
-    async fn update_teacher_comments(
-        &self,
-        ctx: &Context<'_>,
-        id: Uuid,
-        comments: Option<String>,
-    ) -> GraphQlResult<Teacher> {
-        ensure_auth!(ctx, [write_teacher_absence]);
-
-        teacher_management::update_teacher_comments(ctx, id, comments).await
-    }
-
     async fn add_teacher_associated_oauth(
         &self,
         ctx: &Context<'_>,

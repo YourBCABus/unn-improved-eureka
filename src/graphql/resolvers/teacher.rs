@@ -61,12 +61,6 @@ impl Teacher {
 
         Ok(self.get_fully_absent())
     }
-
-    async fn comments(&self, ctx: &Context<'_>) -> GraphQlResult<Option<&str>> {
-        ensure_auth!(ctx, [read_teacher_absence]);
-
-        Ok(self.get_comments())
-    }
 }
 
 
