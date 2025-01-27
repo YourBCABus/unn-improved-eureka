@@ -80,10 +80,11 @@ pub async fn connect_as(connection_name: &str) -> Result<PgPool, sqlx::Error> {
 /// # Panics
 /// 
 /// This function will panic if the connection fails.
-pub fn unwrap_connection(connection_result: Result<PgPool, sqlx::Error>) -> PgPool {
+pub async fn unwrap_connection(connection_result: Result<PgPool, sqlx::Error>) -> PgPool {
     match connection_result {
         Ok(client) => client,
         Err(e) => {
+            crate::logging::report!("Failed to connect to eureka db": { "err": e.to_string() });
             crate::logging::error!("Failed to connect to eureka db: {e}");
             crate::logging::debug!("Eureka db error: {e:#?}");
             panic!("Failed to connect to eureka db: {e}");

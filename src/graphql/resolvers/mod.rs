@@ -58,17 +58,22 @@ macro_rules! run_query {
             ($req_id:expr)
             $fmt_str:tt $(, $($fmt_args:expr),+ $(,)?)?
     ) => {
-        ($query_name)(&mut $db_conn, $($var),*)
-            .await
-            .map_err(|e| {
+        match ($query_name)(&mut $db_conn, $($var),*).await {
+            Ok(res) => Ok(res),
+            Err(e) => {
                 let e = e.to_string();
                 $crate::logging::error!(
                     "{} - {}",
                     $crate::logs_env::logging::fmt_req_id($req_id),
                     format_args!($fmt_str, $($($fmt_args,)+)? e),
                 );
-                async_graphql::Error::new(format!($fmt_str, $($($fmt_args,)+)? e))
-            })
+                $crate::logging::report!("Failed to run query": {
+                    "query_name": stringify!($query_name),
+                    "error": e.to_string(),
+                });
+                Err(async_graphql::Error::new(format!($fmt_str, $($($fmt_args,)+)? e)))
+            }
+        }
     };
 }
 pub (crate) use run_query;

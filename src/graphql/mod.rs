@@ -62,14 +62,14 @@ pub type Schema = GenericSchema<QueryRoot, MutationRoot, EmptySubscription>;
 // }
 
 
-pub fn schema(app_state: AppState) -> Schema {
+pub async fn schema(app_state: AppState) -> Schema {
     GenericSchema::build(
         QueryRoot,
         MutationRoot,
         EmptySubscription,
     )
         .data(app_state)
-        .limit_complexity(graphql_complexity_limit_usize_panic())
+        .limit_complexity(graphql_complexity_limit_usize_panic().await)
         .finish()
 }
 
@@ -112,22 +112,26 @@ async fn get_scopes_id_secret(context: &async_graphql::Context<'_>) -> async_gra
     use tokio::sync::OnceCell;
     use async_graphql::Error as GraphQlError;
 
+    let path_node = context.path_node.map(|node| node.to_string()).unwrap_or_default();
 
     let Ok(scopes_cell) = context.data::<OnceCell<IdSecretScopes>>() else {
-        crate::logging::error!("OnceCell Missing from context!");
+        crate::logging::error!("OnceCell<IdSecretScopes> missing from context @ path node {path_node}!");
+        crate::logging::report!("OnceCell missing from context": { "path_node": path_node });
         return Ok(Scopes::new());
     };
 
     scopes_cell.get_or_try_init(|| async {
         let Ok(app_state) = context.data::<crate::state::AppState>() else {
             let err = GraphQlError::new("Internal server error (App State)");
-            crate::logging::error!("{err:?}");
+            crate::logging::error!("AppState missing from context data: {err:?}");
+            crate::logging::report!("AppState missing from context data": { "path_node": path_node });
             return Err(err);
         };
         let mut db_pool = match app_state.db().acquire().await {
             Ok(db_pool) => db_pool,
             Err(e) => {
                 crate::logging::error!("DB Error: {e:?}");
+                crate::logging::report!("Database error when getting scopes": { "path_node": path_node });
                 return Err(GraphQlError::new("Internal server error (DB)"));
             },
         };
@@ -148,7 +152,7 @@ async fn get_scopes_id_secret(context: &async_graphql::Context<'_>) -> async_gra
             ).await {
                 Some(scopes) => Ok(IdSecretScopes(scopes)),
                 None => {
-                    crate::logging::error!("Client not allowed");
+                    crate::logging::warn!("Client not allowed");
                     Ok(IdSecretScopes(Scopes::new()))
                 },
             }
@@ -167,22 +171,26 @@ async fn get_scopes_id_token(context: &async_graphql::Context<'_>) -> async_grap
     use tokio::sync::OnceCell;
     use async_graphql::Error as GraphQlError;
 
+    let path_node = context.path_node.map(|node| node.to_string()).unwrap_or_default();
 
     let Ok(scopes_cell) = context.data::<OnceCell<IdTokenScopes>>() else {
-        crate::logging::error!("OnceCell Missing from context!");
+        crate::logging::error!("OnceCell<IdSecretScopes> missing from context @ path node {path_node}!");
+        crate::logging::report!("OnceCell<IdSecretScopes> missing from context": { "path_node": path_node });
         return Ok(Scopes::new());
     };
 
     scopes_cell.get_or_try_init(|| async {
         let Ok(app_state) = context.data::<crate::state::AppState>() else {
             let err = GraphQlError::new("Internal server error (App State)");
-            crate::logging::error!("{err:?}");
+            crate::logging::error!("AppState missing from context data: {err:?}");
+            crate::logging::report!("AppState missing from context data": { "path_node": path_node });
             return Err(err);
         };
         let mut db_pool = match app_state.db().acquire().await {
             Ok(db_pool) => db_pool,
             Err(e) => {
                 crate::logging::error!("DB Error: {e:?}");
+                crate::logging::report!("Database error when getting scopes": { "path_node": path_node });
                 return Err(GraphQlError::new("Internal server error (DB)"));
             },
         };
@@ -199,7 +207,7 @@ async fn get_scopes_id_token(context: &async_graphql::Context<'_>) -> async_grap
             ).await  {
                 Some(scopes) => Ok(IdTokenScopes(scopes)),
                 None => {
-                    crate::logging::error!("User not allowed");
+                    crate::logging::warn!("User not allowed");
                     Ok(IdTokenScopes(Scopes::new()))
                 },
             }

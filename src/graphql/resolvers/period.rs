@@ -45,21 +45,32 @@ impl Period {
         let school_id = get_school_id(ctx).await?;
         let req_id = req_id(ctx);
 
-        let ids = TeacherList::get_by_period(school_id, req_id, self.id, &mut db_conn)
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
+        let ids = match TeacherList::get_by_period(school_id, req_id, self.id, &mut db_conn).await {
+            Ok(ok) => ok,
+            Err(e) => {
                 error!("{} - Failed to get absent teacher ids from database {e}", fmt_req_id(req_id));
-                GraphQlError::new(format!("Failed to get absent teacher ids from database {e}"))
-            })?;
+                report!("Failed to get absent teacher ids from database": {
+                    "school_id": school_id,
+                    "period_id": self.id,
+                    "error": e.to_string(),
+                });
+                return Err(GraphQlError::new(format!("Failed to get absent teacher ids from database {e}")));
+            }
+        };
 
-        ids.get_teachers(req_id, &mut db_conn)
-            .await
-            .map_err(|e| {
-                let e = e.to_string();
-                error!("{} - Failed to get absent teacher data from database {e}", fmt_req_id(req_id));
-                GraphQlError::new(format!("Failed to get absent teachers from database {e}"))
-            })
+        match ids.clone().get_teachers(req_id, &mut db_conn).await {
+            Ok(ok) => Ok(ok),
+            Err(e) => {
+                error!("{} - Failed to get absent teachers from database {e}", fmt_req_id(req_id));
+                report!("Failed to get absent teachers from database": {
+                    "school_id": school_id,
+                    "period_id": self.id,
+                    "ids": ids.0,
+                    "error": e.to_string(),
+                });
+                Err(GraphQlError::new(format!("Failed to get absent teachers from database {e}")))
+            }
+        }
     }
 }
 

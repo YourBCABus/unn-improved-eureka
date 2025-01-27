@@ -15,6 +15,8 @@ async fn main() -> std::io::Result<()> {
     let sender = setup::metrics();
 
     let clean_up_logging = setup::env_and_logging();
+    yenowa_errors::init_env("tablejet", "eureka").expect("failed to set up error reporting");
+    
     let schema = setup::data(
         Some("./schema.graphql"),
         sender.clone(),
@@ -165,7 +167,6 @@ mod setup {
         }
         
         let max_size = max_size.unwrap_or(10 * 1024 * 1024); // 10 MB
-
         set_up_logging(&default_logging_targets_with_size_limit(max_size), "TableJet Improved Eureka").unwrap()
     }
 
@@ -184,16 +185,16 @@ mod setup {
         use improved_eureka::database::{ connect_as, unwrap_connection };
 
         let db_conn = connect_as("TableJet Improved Eureka").await;
-        unwrap_connection(db_conn)
+        unwrap_connection(db_conn).await
     }
 
     /// Gets the graphql schema (with the associated db context) for the server
-    fn schema(db: sqlx::PgPool, metrics: improved_eureka::metrics::MetricProducer) -> improved_eureka::graphql::Schema {
+    async fn schema(db: sqlx::PgPool, metrics: improved_eureka::metrics::MetricProducer) -> improved_eureka::graphql::Schema {
         use improved_eureka::state::AppState;
         use improved_eureka::graphql::schema;
 
         let ctx: AppState = AppState::new(db, metrics);
-        schema(ctx)
+        schema(ctx).await
     }
 
 
@@ -204,7 +205,7 @@ mod setup {
         metrics: improved_eureka::metrics::MetricProducer,
     ) -> actix_web::web::Data<Schema> {
         let db = db().await;
-        let schema = schema(db, metrics);
+        let schema = schema(db, metrics).await;
         if let Some(path) = save_schema {
             improved_eureka::graphql::save_schema(&schema, path);
         }
@@ -219,7 +220,7 @@ mod setup {
     /// server down to just 2 values.
     pub async fn get_bind() -> (&'static str, u16) {
         let ip = "0.0.0.0";
-        let port = improved_eureka::env::port_u16_panic();
+        let port = improved_eureka::env::port_u16_panic().await;
         
         (ip, port)
     }

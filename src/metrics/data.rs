@@ -177,10 +177,10 @@ impl Hasher for ResponseTimeHasher {
         }
     }
     fn write_u64(&mut self, i: u64) {
-        self.0 = self.0
-            .wrapping_mul(u32::MAX as u64) // Little prime
-            .wrapping_add(i)
-            .rem_euclid(u64::MAX - 58); // Big prime
+        self.0 = (self.0 as u128)
+            .wrapping_mul(u32::MAX as u128) // Little prime
+            .wrapping_add(i as u128)
+            .rem_euclid((u64::MAX - 58) as u128) as u64; // Big prime
     }
 }
 

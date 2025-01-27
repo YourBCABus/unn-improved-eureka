@@ -77,6 +77,18 @@ pub mod logging {
         SmallId(Some("req"), id)
     }
 
+    pub async fn report(message: &str, data: &impl serde::Serialize) {
+        if let Err(e) = yenowa_errors::report(message, data).await {
+            crate::logging::error!("Failed to report error to the logging service {e:?}");
+        }
+    }
+
+    macro_rules! _report {
+        ($message:literal: $json:tt) => {
+            crate::logging::report($message, &::serde_json::json! { $json }).await
+        };
+    }
+    pub (crate) use _report as report;
 }
 
 pub mod env {
@@ -94,9 +106,10 @@ pub mod env {
     /// - `> 65535`
     /// - `< 0`
     /// - not a number
-    pub fn port_u16_panic() -> u16 {
+    pub async fn port_u16_panic() -> u16 {
         let port = port();
         let Ok(port) = port.parse() else {
+            crate::logging::report!("Failed to parse port as u16": { "port": port });
             crate::logging::error!("Failed to parse port as u16");
             crate::logging::debug!("Port: {:#?}", port);
             panic!("Failed to parse port as u16");
@@ -104,9 +117,10 @@ pub mod env {
         port
     }
     
-    pub fn graphql_complexity_limit_usize_panic() -> usize {
+    pub async fn graphql_complexity_limit_usize_panic() -> usize {
         let complexity = graphql_complexity_limit();
         let Ok(complexity) = complexity.parse() else {
+            crate::logging::report!("Failed to parse graphql complexity as usize": { "complexity": complexity });
             crate::logging::error!("Failed to parse graphql complexity as usize");
             crate::logging::debug!("Complexity: {:#?}", complexity);
             panic!("Failed to parse complexity as usize");

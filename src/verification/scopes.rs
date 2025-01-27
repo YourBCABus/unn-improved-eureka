@@ -128,12 +128,12 @@ macro_rules! define_scopes {
 
 define_scopes!(
     // Read scopes
-    read_teacher,
-    read_teacher_name,
-    read_teacher_pronouns,
-    read_teacher_absence,
+    pub read_teacher,
+    pub read_teacher_name,
+    pub read_teacher_pronouns,
+    pub read_teacher_absence,
 
-    read_period,
+    pub read_period,
 
 
     // Write scopes
