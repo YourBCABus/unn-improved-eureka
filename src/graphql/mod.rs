@@ -17,6 +17,7 @@ use crate::state::AppState;
 use self::{
     resolvers::query::QueryRoot,
     resolvers::mutation::MutationRoot,
+    resolvers::get_db,
 };
 
 use async_graphql::{
@@ -24,43 +25,8 @@ use async_graphql::{
     EmptySubscription,
 };
 
-
-
-
 /// A Schema alias type used by the `GraphQLRequest` handler to run a GraphQL query.
 pub type Schema = GenericSchema<QueryRoot, MutationRoot, EmptySubscription>;
-
-
-// /// What is essentially the linkage between [actix_web]'s requests and [juniper]'s query execution.
-// /// - `state` - `improved-eureka` [AppState] shared between requests.
-// /// - `req` - the opaque juniper type for a graphql request, deserialized from JSON
-// /// 
-// /// This function is only really supposed to be called at the end of a filter chain with and_then.
-// /// It should never fail, and especially never panic.
-// /// 
-// pub async fn exec_graphql(
-//     state: AppState,
-//     req: GraphQLRequest,
-// ) -> impl Responder {
-//     let res = req
-//         .execute(
-//             &state.schema,
-//             &state,
-//         ).await;
-
-    
-//     match serde_json::to_string(&res) {
-//         Ok(json) => if res.is_ok() {
-//             Ok(HttpResponse::Ok().body(json))
-//         } else {
-//             Ok(HttpResponse::BadRequest().body(json))
-//         },
-//         Err(err) => {
-//             Ok(HttpResponse::InternalServerError().body(err.to_string()))
-//         },
-//     }
-// }
-
 
 pub async fn schema(app_state: AppState) -> Schema {
     GenericSchema::build(
@@ -116,25 +82,19 @@ async fn get_scopes_id_secret(context: &async_graphql::Context<'_>) -> async_gra
 
     let Ok(scopes_cell) = context.data::<OnceCell<IdSecretScopes>>() else {
         crate::logging::error!("OnceCell<IdSecretScopes> missing from context @ path node {path_node}!");
-        crate::logging::report!("OnceCell missing from context": { "path_node": path_node });
+        crate::report!("OnceCell missing from context": { "path_node": path_node });
         return Ok(Scopes::new());
     };
 
     scopes_cell.get_or_try_init(|| async {
+        crate::logging::trace!("Getting id/secret scopes for the first time this request");
         let Ok(app_state) = context.data::<crate::state::AppState>() else {
             let err = GraphQlError::new("Internal server error (App State)");
             crate::logging::error!("AppState missing from context data: {err:?}");
-            crate::logging::report!("AppState missing from context data": { "path_node": path_node });
+            crate::report!("AppState missing from context data": { "path_node": path_node });
             return Err(err);
         };
-        let mut db_pool = match app_state.db().acquire().await {
-            Ok(db_pool) => db_pool,
-            Err(e) => {
-                crate::logging::error!("DB Error: {e:?}");
-                crate::logging::report!("Database error when getting scopes": { "path_node": path_node });
-                return Err(GraphQlError::new("Internal server error (DB)"));
-            },
-        };
+        let mut db_pool = get_db!(<state> app_state);
 
         let id = context.data::<ClientIdHeader>().map(|id| id.inner());
         let secret = context.data::<ClientSecretHeader>().map(|secret| secret.as_bytes());
@@ -175,39 +135,32 @@ async fn get_scopes_id_token(context: &async_graphql::Context<'_>) -> async_grap
 
     let Ok(scopes_cell) = context.data::<OnceCell<IdTokenScopes>>() else {
         crate::logging::error!("OnceCell<IdSecretScopes> missing from context @ path node {path_node}!");
-        crate::logging::report!("OnceCell<IdSecretScopes> missing from context": { "path_node": path_node });
+        crate::report!("OnceCell<IdSecretScopes> missing from context": { "path_node": path_node });
         return Ok(Scopes::new());
     };
 
     scopes_cell.get_or_try_init(|| async {
+        crate::logging::trace!("Getting id/token scopes for the first time this request");
         let Ok(app_state) = context.data::<crate::state::AppState>() else {
             let err = GraphQlError::new("Internal server error (App State)");
             crate::logging::error!("AppState missing from context data: {err:?}");
-            crate::logging::report!("AppState missing from context data": { "path_node": path_node });
+            crate::report!("AppState missing from context data": { "path_node": path_node });
             return Err(err);
         };
-        let mut db_pool = match app_state.db().acquire().await {
-            Ok(db_pool) => db_pool,
-            Err(e) => {
-                crate::logging::error!("DB Error: {e:?}");
-                crate::logging::report!("Database error when getting scopes": { "path_node": path_node });
-                return Err(GraphQlError::new("Internal server error (DB)"));
-            },
-        };
+        let mut db_conn = get_db!(<state> app_state);
 
         let id_token = context.data::<IdTokenHeader>();
 
-        // TODO: Gate to schools
         let school_id = get_school_id(context).await?;
         if let Ok(id_token) = id_token {
             match user_allowed(
-                &mut db_pool,
+                &mut db_conn,
                 id_token.clone(),
                 school_id,
             ).await  {
-                Some(scopes) => Ok(IdTokenScopes(scopes)),
-                None => {
-                    crate::logging::warn!("User not allowed");
+                Ok(scopes) => Ok(IdTokenScopes(scopes)),
+                Err(e) => {
+                    crate::logging::warn!("Error occured: {e}");
                     Ok(IdTokenScopes(Scopes::new()))
                 },
             }
@@ -221,6 +174,8 @@ async fn get_scopes_id_token(context: &async_graphql::Context<'_>) -> async_grap
 
 mod school_id {
     use uuid::Uuid;
+
+    use crate::graphql::resolvers::get_db;
 
     pub struct SchoolId(std::sync::RwLock<Uuid>);
 
@@ -246,25 +201,12 @@ mod school_id {
         }
     }
 
-    pub async fn get_school_id(context: &async_graphql::Context<'_>) -> async_graphql::Result<Uuid> {
-        use async_graphql::Error as GraphQlError;
-    
+    pub async fn get_school_id(context: &async_graphql::Context<'_>) -> async_graphql::Result<Uuid> {    
         let uuid = context.data::<SchoolId>().map(|id| id.inner())?;
         if uuid.is_nil() {
-            let Ok(app_state) = context.data::<crate::state::AppState>() else {
-                let err = GraphQlError::new("Internal server error (App State)");
-                crate::logging::error!("{err:?}");
-                return Err(err);
-            };
-            let mut db_pool = match app_state.db().acquire().await {
-                Ok(db_pool) => db_pool,
-                Err(e) => {
-                    crate::logging::error!("DB Error: {e:?}");
-                    return Err(GraphQlError::new("Internal server error (DB)"));
-                },
-            };
-    
-            let Ok(default_school_id) = crate::database::prepared::config::get_default_school_id(&mut db_pool).await else {
+            let mut db_conn = get_db!(context);
+
+            let Ok(default_school_id) = crate::database::prepared::config::get_default_school_id(&mut db_conn).await else {
                 return Err(async_graphql::Error::new("Failed to get school id"));
             };
 
@@ -282,5 +224,6 @@ mod school_id {
         req.data(SchoolId::new(school_id))
     }
 }
+
 
 pub use school_id::{ get_school_id, with_school_id };

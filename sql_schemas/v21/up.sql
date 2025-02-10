@@ -7,5 +7,5 @@ CREATE TABLE google_emails (
 
 INSERT INTO google_emails (school_id, email_regexes) VALUES (
     (SELECT school_id FROM clients WHERE is_google),
-    '{"^.+@bergen\.org$"}'::text[]
+    '{"^.+@bergen\\.org$"}'::text[]
 );

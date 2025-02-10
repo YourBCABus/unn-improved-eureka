@@ -63,8 +63,8 @@ pub async fn connect_as(connection_name: &str) -> Result<PgPool, sqlx::Error> {
 
 
     let options = PgPoolOptions::new()
-        .min_connections(4)
-        .max_connections(8);
+        .min_connections(10)
+        .max_connections(50);
 
     let client = options
         .connect_with(connection_options)
@@ -84,7 +84,7 @@ pub async fn unwrap_connection(connection_result: Result<PgPool, sqlx::Error>) -
     match connection_result {
         Ok(client) => client,
         Err(e) => {
-            crate::logging::report!("Failed to connect to eureka db": { "err": e.to_string() });
+            crate::report!("Failed to connect to eureka db": { "err": e.to_string() });
             crate::logging::error!("Failed to connect to eureka db: {e}");
             crate::logging::debug!("Eureka db error: {e:#?}");
             panic!("Failed to connect to eureka db: {e}");

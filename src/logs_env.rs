@@ -83,12 +83,108 @@ pub mod logging {
         }
     }
 
-    macro_rules! _report {
+    #[macro_export]
+    macro_rules! report {
         ($message:literal: $json:tt) => {
-            crate::logging::report($message, &::serde_json::json! { $json }).await
+            $crate::logging::report($message, &::serde_json::json! { $json }).await
         };
     }
-    pub (crate) use _report as report;
+
+    static BACKTRACE: std::sync::RwLock<Option<(
+        // For capturing the backtrace
+        std::backtrace::Backtrace,
+
+        // As a little note for the developers in case setting the backtrace
+        // ever fails that the current one might be stale
+        std::time::Instant,
+    )>> = std::sync::RwLock::new(None);
+
+    pub fn set_panic_hook() {
+        fn additional_hook(_: &std::panic::PanicHookInfo<'_>) {
+            let Ok(mut backtrace) = BACKTRACE.write() else { return };
+            *backtrace = Some((std::backtrace::Backtrace::force_capture(), std::time::Instant::now()));
+        }
+        std::panic::update_hook(|orig, info| {
+            orig(info);
+            additional_hook(info);
+        });
+    }
+
+    pub fn get_backtrace() -> String {
+        let Ok(backtrace) = BACKTRACE.read() else {
+            return "Unable to read recorded backtrace".to_string();
+        };
+        backtrace.as_ref()
+            .map(|(b, t)| format!(
+                "Backtrace from {:.3}ms ago:\n{}",
+                t.elapsed().as_secs_f64() * 1000.0,
+                b,
+            ))
+            .unwrap_or_else(|| "No backtrace found".to_string())
+    }
+
+    #[macro_export]
+    macro_rules! report_panics_sync {
+        ($($body:tt)+) => {
+            match std::panic::catch_unwind(|| { $($body)+ }) {
+                Ok(v) => v,
+                Err(e) => {
+                    let formatted = if let Some(s) = e.downcast_ref::<&str>() {
+                        s.to_string()
+                    } else if let Some(s) = e.downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        "<unable to read panic message>".to_string()
+                    };
+                    let backtrace = $crate::logging::get_backtrace();
+
+                    $crate::logging::error!("Caught panic in handler:\n{formatted}\n{backtrace}");
+                    tokio::task::spawn_blocking(|| async move {
+                        $crate::report!("Caught panic in handler": {
+                            "caught": {
+                                "line": line!(),
+                                "col": column!(),
+                                "file": file!(),
+                            },
+                            "err": formatted,
+                            "backtrace": backtrace,
+                        });
+                    });
+                    std::panic::resume_unwind(e);
+                }
+            }
+        };
+    }
+    #[macro_export]
+    macro_rules! report_panics_async {
+        ($($body:tt)+) => {
+            match futures::FutureExt::catch_unwind(std::panic::AssertUnwindSafe(async { $($body)+ })).await {
+                Ok(v) => v,
+                Err(e) => {
+                    let formatted = if let Some(s) = e.downcast_ref::<&str>() {
+                        s.to_string()
+                    } else if let Some(s) = e.downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        "<unable to read panic message>".to_string()
+                    };
+                    let backtrace = $crate::logging::get_backtrace();
+
+                    $crate::logging::error!("Caught panic in handler:\n{formatted}\n{backtrace}");
+                    $crate::report!("Caught panic in handler": {
+                        "caught": {
+                            "line": line!(),
+                            "col": column!(),
+                            "file": file!(),
+                        },
+                        "err": formatted,
+                        "backtrace": backtrace,
+                    });
+                    std::panic::resume_unwind(e);
+                }
+            }
+        };
+    }
 }
 
 pub mod env {
@@ -109,7 +205,7 @@ pub mod env {
     pub async fn port_u16_panic() -> u16 {
         let port = port();
         let Ok(port) = port.parse() else {
-            crate::logging::report!("Failed to parse port as u16": { "port": port });
+            crate::report!("Failed to parse port as u16": { "port": port });
             crate::logging::error!("Failed to parse port as u16");
             crate::logging::debug!("Port: {:#?}", port);
             panic!("Failed to parse port as u16");
@@ -120,7 +216,7 @@ pub mod env {
     pub async fn graphql_complexity_limit_usize_panic() -> usize {
         let complexity = graphql_complexity_limit();
         let Ok(complexity) = complexity.parse() else {
-            crate::logging::report!("Failed to parse graphql complexity as usize": { "complexity": complexity });
+            crate::report!("Failed to parse graphql complexity as usize": { "complexity": complexity });
             crate::logging::error!("Failed to parse graphql complexity as usize");
             crate::logging::debug!("Complexity: {:#?}", complexity);
             panic!("Failed to parse complexity as usize");

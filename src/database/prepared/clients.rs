@@ -93,3 +93,17 @@ pub async fn get_school_email_regexes(ctx: &mut Ctx, school_id: Uuid) -> Result<
 
     Ok(regexes)
 }
+
+pub async fn get_school_hosted_domains(ctx: &mut Ctx, school_id: Uuid) -> Result<Vec<String>, sqlx::Error> {
+    let get_hds_query = prepared_query!(
+        r"
+            SELECT hosted_domains
+            FROM google_emails
+            WHERE school_id = $1;
+        ";
+        { hosted_domains: Vec<String> };
+        school_id
+    );
+
+    Ok(get_hds_query.fetch_one(&mut **ctx).await?.hosted_domains)
+}

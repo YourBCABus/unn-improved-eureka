@@ -49,7 +49,7 @@ impl Period {
             Ok(ok) => ok,
             Err(e) => {
                 error!("{} - Failed to get absent teacher ids from database {e}", fmt_req_id(req_id));
-                report!("Failed to get absent teacher ids from database": {
+                crate::report!("Failed to get absent teacher ids from database": {
                     "school_id": school_id,
                     "period_id": self.id,
                     "error": e.to_string(),
@@ -62,7 +62,7 @@ impl Period {
             Ok(ok) => Ok(ok),
             Err(e) => {
                 error!("{} - Failed to get absent teachers from database {e}", fmt_req_id(req_id));
-                report!("Failed to get absent teachers from database": {
+                crate::report!("Failed to get absent teachers from database": {
                     "school_id": school_id,
                     "period_id": self.id,
                     "ids": ids.0,

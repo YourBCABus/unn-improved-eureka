@@ -6,17 +6,18 @@ use improved_eureka::verification::{ClientIdHeader, ClientSecretHeader, IdTokenH
 use improved_eureka::graphql::{ with_school_id, IdSecretScopes, IdTokenScopes, Schema };
 
 use improved_eureka::logging::*;
-
+use improved_eureka::report_panics_async;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     info!("Server process started");
 
+
     let sender = setup::metrics();
 
     let clean_up_logging = setup::env_and_logging();
     yenowa_errors::init_env("tablejet", "eureka").expect("failed to set up error reporting");
-    
+
     let schema = setup::data(
         Some("./schema.graphql"),
         sender.clone(),
@@ -49,14 +50,16 @@ async fn graphql_handler_default(
     client_secret: Option<Header<ClientSecretHeader>>,
     id_token: Option<Header<IdTokenHeader>>,
 ) -> GraphQLResponse {
-    let request = augment_request(
-        request.into_inner(),
-        client_id,
-        client_secret,
-        id_token,
-        Uuid::nil(),
-    ).await;
-    schema.execute(request).await.into()
+    report_panics_async! {
+        let request = augment_request(
+            request.into_inner(),
+            client_id,
+            client_secret,
+            id_token,
+            Uuid::nil(),
+        ).await;
+        schema.execute(request).await.into()
+    }
 }
 
 /// This route handles all of the GraphQL requests. It's essentially the basis
@@ -75,14 +78,16 @@ async fn graphql_handler(
     client_secret: Option<Header<ClientSecretHeader>>,
     id_token: Option<Header<IdTokenHeader>>,
 ) -> GraphQLResponse {
-    let request = augment_request(
-        request.into_inner(),
-        client_id,
-        client_secret,
-        id_token,
-        info.into_inner(),
-    ).await;
-    schema.execute(request).await.into()
+    report_panics_async! {
+        let request = augment_request(
+            request.into_inner(),
+            client_id,
+            client_secret,
+            id_token,
+            info.into_inner(),
+        ).await;
+        schema.execute(request).await.into()
+    }
 }
 
 
@@ -156,6 +161,7 @@ mod setup {
             sql().unwrap();
         }
 
+        improved_eureka::logging::set_panic_hook();
         let max_size = if let Ok(max_size) = std::env::var("LOG_MAX_SIZE") {
             max_size.parse().ok()
         } else {

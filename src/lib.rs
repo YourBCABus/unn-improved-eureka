@@ -1,4 +1,5 @@
 // #![warn(clippy::missing_docs_in_private_items)]
+#![feature(panic_update_hook)]
 
 // TODO: Document Better
 

@@ -28,5 +28,3 @@ impl AppState {
         &self.0.metrics
     }
 }
-
-

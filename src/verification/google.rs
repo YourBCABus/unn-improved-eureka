@@ -33,6 +33,7 @@ pub async fn get_google_keys() -> Result<JwkSet, String> {
 struct RelevantUserInfo {
     email: String,
     email_verified: bool,
+    hd: Option<String>,
 }
 
 async fn get_user_data(id_token: IdTokenHeader) -> Result<RelevantUserInfo, String> {
@@ -55,9 +56,20 @@ async fn get_user_data(id_token: IdTokenHeader) -> Result<RelevantUserInfo, Stri
     };
 
 
+    // TODO: Move accepted client IDs to .env variables
     let mut validation = jsonwebtoken::Validation::new(header.alg);
-    validation.validate_aud = false;
     validation.validate_nbf = true;
+    validation.set_audience(&[
+        "272982920556-4j4j3s8t7l97q7h949gf2of71ak45hdi.apps.googleusercontent.com", // Android Prod
+        "272982920556-l5jaaqqu5thbe3237io6f5o0fle95s42.apps.googleusercontent.com", // Android Dev
+        "272982920556-erujjqbvuiu4880bvtg7q0vdrpc84chq.apps.googleusercontent.com", // iOS
+        "272982920556-82qhftjei4mhs0sm5g91dutu655tkdd0.apps.googleusercontent.com", // Web
+    ]);
+    validation.set_issuer(&[
+        "accounts.google.com",
+        "https://accounts.google.com",
+    ]);
+
     match jsonwebtoken::decode(
         token,
         &decoding_key,
@@ -67,7 +79,7 @@ async fn get_user_data(id_token: IdTokenHeader) -> Result<RelevantUserInfo, Stri
             Ok(v.claims)
         },
         Err(e) => {
-            debug!("Error kind: {e}");
+            info!("ID token error kind: {e}");
             if matches!(e.kind(), jsonwebtoken::errors::ErrorKind::InvalidSignature) {
                 warn!("ID token tampering detected: {e}");
             }
@@ -76,20 +88,38 @@ async fn get_user_data(id_token: IdTokenHeader) -> Result<RelevantUserInfo, Stri
     }
 }
 
-pub async fn user_allowed(ctx: &mut Ctx, id_token: IdTokenHeader, school_id: Uuid) -> Option<Scopes> {
+pub async fn user_allowed(ctx: &mut Ctx, id_token: IdTokenHeader, school_id: Uuid) -> Result<Scopes, String> {
     use database::prepared::clients::get_google_client_scopes as google_scopes;
     use database::prepared::clients::get_school_email_regexes as email_regexes;
+    use database::prepared::clients::get_school_hosted_domains as hosted_domains;
 
-    let user_data = get_user_data(id_token).await.ok()?;
-    let google_client_scopes = google_scopes(ctx, school_id).await.ok()?;
-    let email_regexes = email_regexes(ctx, school_id).await.ok()?;
-
-    let is_allowed = email_regexes.iter().any(|regex| regex.is_match(&user_data.email));
-    if is_allowed && user_data.email_verified {
-        Some(google_client_scopes)
-    } else {
-        Some(Scopes::new())
+    // Get & verify the token data, break out if email isn't verified
+    let user_data = get_user_data(id_token).await?;
+    if !user_data.email_verified {
+        return Ok(Scopes::new());
     }
+
+    // Get the google scopes to grant if the hosted domain or email matches
+    let google_scopes = google_scopes(ctx, school_id).await.map_err(|v| format!("{v:?}"))?;
+
+    // If the hosted domain is one of the accepted ones for THIS SCHOOL, return
+    // the authorized scopes
+    let hosted_domains = hosted_domains(ctx, school_id).await.map_err(|v| format!("{v:?}"))?;
+    if let Some(domain) = &user_data.hd {
+        if hosted_domains.contains(domain) {
+            return Ok(google_scopes);
+        }
+    }
+
+    // If the email matches any of the accepted regexes for THIS SCHOOL, return
+    // the authorized scopes
+    let email_regexes = email_regexes(ctx, school_id).await.map_err(|v| format!("{v:?}"))?;
+    if email_regexes.iter().any(|regex| regex.is_match(&user_data.email)) {
+        return Ok(google_scopes);
+    }
+
+    // Otherwise, return the default scopes
+    Ok(Scopes::new())
 }
 
 pub fn generate_client_keystr(secret: &[u8]) -> Option<String> {
@@ -109,7 +139,7 @@ pub fn generate_client_keystr(secret: &[u8]) -> Option<String> {
         .chain(std::iter::once(b':'))
         .chain(salt.as_bytes().iter().copied())
         .collect();
-    
+
     let hash = sha256::digest(value_to_hash);
 
     let keystr = format!("{hash}:{salt}");

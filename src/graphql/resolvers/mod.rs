@@ -19,16 +19,36 @@ pub use {
 };
 
 macro_rules! get_db {
+    (<state> $ctx:expr) => {
+        {
+            match $ctx.db().acquire().await {
+                Ok(conn) => conn,
+                Err(e) => {
+                    let pool = $ctx.db();
+                    let (idle, total) = (pool.num_idle(), pool.size());
+                    let options = format!("{:?}", pool.options());
+
+                    crate::logging::error!("DB Error: {e:?}");
+                    crate::report!("Database error when getting scopes": {
+                        "db_info": {
+                            "conns": {
+                                "idle": idle,
+                                "total": total,
+                            },
+                            "opts": options,
+                        },
+                    });
+
+                    let e = e.to_string();
+                    return Err(async_graphql::Error::new(format!("Could not open connection to the database {e}")))
+                }
+            }
+        }
+    };
     ($ctx_accessor:expr) => {
         {
             let ctx = $ctx_accessor.data::<$crate::state::AppState>()?;
-            ctx.db()
-                .acquire()
-                .await
-                .map_err(|e| {
-                    let e = e.to_string();
-                    async_graphql::Error::new(format!("Could not open connection to the database {e}"))
-                })?
+            $crate::graphql::resolvers::get_db!(<state> ctx)
         }
     };
 }
@@ -67,7 +87,7 @@ macro_rules! run_query {
                     $crate::logs_env::logging::fmt_req_id($req_id),
                     format_args!($fmt_str, $($($fmt_args,)+)? e),
                 );
-                $crate::logging::report!("Failed to run query": {
+                $crate::report!("Failed to run query": {
                     "query_name": stringify!($query_name),
                     "error": e.to_string(),
                 });
@@ -82,7 +102,7 @@ pub (crate) use run_query;
 macro_rules! ensure_auth {
     ($ctx:ident, [$($scopes:ident),+]) => {
         {
-            $crate::logging::trace!("Getting scopes...");
+            // $crate::logging::trace!("Getting scopes...");
             let (id_secret_scopes, id_token_scopes) = tokio::try_join! {
                 $crate::graphql::get_scopes_id_secret($ctx),
                 $crate::graphql::get_scopes_id_token($ctx),
@@ -98,3 +118,9 @@ macro_rules! ensure_auth {
     };
 }
 pub (crate) use ensure_auth;
+
+// macro_rules! get_db {
+//     () => {
+        
+//     };
+// }

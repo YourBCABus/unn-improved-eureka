@@ -19,6 +19,7 @@ pub async fn add_teacher(
 
     let mut db_conn = get_db!(ctx);
     let school_id = get_school_id(ctx).await?;
+    crate::logging::info!("Adding teacher to school {school_id:?}");
 
     let teacher = Teacher::new(
         uuid::Uuid::new_v4(),
