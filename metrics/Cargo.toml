@@ -1,0 +1,12 @@
+[package]
+name = "metrics"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+actix-web = { version = "4", features = ["rustls"] }
+futures-util = "0.3"
+tokio = { version = "1", features = [], default-features = false }
+
+logging = { path = "../logging" }
+arcs-logging-rs = "^0.2"

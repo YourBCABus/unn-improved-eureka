@@ -5,19 +5,15 @@
 //! 
 //! 
 
-pub mod structs;
-
 pub mod resolvers;
 
 
-use crate::verification::google::user_allowed;
-use crate::env::graphql_complexity_limit_usize_panic;
-use crate::state::AppState;
+use cfg::graphql_complexity_limit_usize_panic;
+use server::AppState;
 
 use self::{
     resolvers::query::QueryRoot,
     resolvers::mutation::MutationRoot,
-    resolvers::get_db,
 };
 
 use async_graphql::{
@@ -41,189 +37,8 @@ pub async fn schema(app_state: AppState) -> Schema {
 
 pub fn save_schema(schema: &Schema, path: &str) {
     if let Err(err) = std::fs::write(path, schema.sdl()) {
-        crate::logging::warn!("Schema failed to save to {path}: {err}");
+        logging::warn!("Schema failed to save to {path}: {err}");
     } else {
-        crate::logging::info!("Schema saved to {path}");
+        logging::info!("Schema saved to {path}");
     }
 }
-
-fn req_id(context: &async_graphql::Context) -> uuid::Uuid {
-    const HEADER_NAME: &str = "internal-request-id";
-
-    if let Some(id) = context.insert_http_header(HEADER_NAME, "") {
-        let id = match id.to_str() {
-            Ok(id) => match uuid::Uuid::parse_str(id) {
-                Ok(id) => id,
-                Err(_) => uuid::Uuid::new_v4(),
-            },
-            Err(_) => uuid::Uuid::new_v4(),
-        };
-        context.insert_http_header(HEADER_NAME, id.hyphenated().to_string());
-        id
-    } else {
-        let id = uuid::Uuid::new_v4();
-        context.insert_http_header(HEADER_NAME, id.hyphenated().to_string());
-        id
-    }
-}
-
-pub struct IdSecretScopes(crate::verification::scopes::Scopes);
-pub struct IdTokenScopes(crate::verification::scopes::Scopes);
-
-async fn get_scopes_id_secret(context: &async_graphql::Context<'_>) -> async_graphql::Result<crate::verification::scopes::Scopes> {
-    use crate::verification::{
-        ClientIdHeader, ClientSecretHeader,
-        scopes::Scopes, id_secret::client_allowed,
-    };
-    use tokio::sync::OnceCell;
-    use async_graphql::Error as GraphQlError;
-
-    let path_node = context.path_node.map(|node| node.to_string()).unwrap_or_default();
-
-    let Ok(scopes_cell) = context.data::<OnceCell<IdSecretScopes>>() else {
-        crate::logging::error!("OnceCell<IdSecretScopes> missing from context @ path node {path_node}!");
-        crate::report!("OnceCell missing from context": { "path_node": path_node });
-        return Ok(Scopes::new());
-    };
-
-    scopes_cell.get_or_try_init(|| async {
-        crate::logging::trace!("Getting id/secret scopes for the first time this request");
-        let Ok(app_state) = context.data::<crate::state::AppState>() else {
-            let err = GraphQlError::new("Internal server error (App State)");
-            crate::logging::error!("AppState missing from context data: {err:?}");
-            crate::report!("AppState missing from context data": { "path_node": path_node });
-            return Err(err);
-        };
-        let mut db_pool = get_db!(<state> app_state);
-
-        let id = context.data::<ClientIdHeader>().map(|id| id.inner());
-        let secret = context.data::<ClientSecretHeader>().map(|secret| secret.as_bytes());
-
-        let id_ok = id.is_ok();
-        let secret_ok = secret.is_ok();
-
-        let school_id = get_school_id(context).await?;
-        if let (Ok(id), Ok(secret)) = (id, secret) {
-            match client_allowed(
-                school_id,
-                id,
-                secret, 
-                &mut db_pool,
-            ).await {
-                Some(scopes) => Ok(IdSecretScopes(scopes)),
-                None => {
-                    crate::logging::warn!("Client not allowed");
-                    Ok(IdSecretScopes(Scopes::new()))
-                },
-            }
-        } else {
-            crate::logging::info!("No client id or secret, id: {id_ok}, secret: {secret_ok}");
-            Ok(IdSecretScopes(Scopes::new()))
-        }
-    }).await.map(|scopes| scopes.0)
-}
-
-async fn get_scopes_id_token(context: &async_graphql::Context<'_>) -> async_graphql::Result<crate::verification::scopes::Scopes> {
-    use crate::verification::{
-        scopes::Scopes,
-        IdTokenHeader,
-    };
-    use tokio::sync::OnceCell;
-    use async_graphql::Error as GraphQlError;
-
-    let path_node = context.path_node.map(|node| node.to_string()).unwrap_or_default();
-
-    let Ok(scopes_cell) = context.data::<OnceCell<IdTokenScopes>>() else {
-        crate::logging::error!("OnceCell<IdSecretScopes> missing from context @ path node {path_node}!");
-        crate::report!("OnceCell<IdSecretScopes> missing from context": { "path_node": path_node });
-        return Ok(Scopes::new());
-    };
-
-    scopes_cell.get_or_try_init(|| async {
-        crate::logging::trace!("Getting id/token scopes for the first time this request");
-        let Ok(app_state) = context.data::<crate::state::AppState>() else {
-            let err = GraphQlError::new("Internal server error (App State)");
-            crate::logging::error!("AppState missing from context data: {err:?}");
-            crate::report!("AppState missing from context data": { "path_node": path_node });
-            return Err(err);
-        };
-        let mut db_conn = get_db!(<state> app_state);
-
-        let id_token = context.data::<IdTokenHeader>();
-
-        let school_id = get_school_id(context).await?;
-        if let Ok(id_token) = id_token {
-            match user_allowed(
-                &mut db_conn,
-                id_token.clone(),
-                school_id,
-            ).await  {
-                Ok(scopes) => Ok(IdTokenScopes(scopes)),
-                Err(e) => {
-                    crate::logging::warn!("Error occured: {e}");
-                    Ok(IdTokenScopes(Scopes::new()))
-                },
-            }
-        } else {
-            crate::logging::info!("No user ID token");
-            Ok(IdTokenScopes(Scopes::new()))
-        }
-    }).await.map(|scopes| scopes.0)
-}
-
-
-mod school_id {
-    use uuid::Uuid;
-
-    use crate::graphql::resolvers::get_db;
-
-    pub struct SchoolId(std::sync::RwLock<Uuid>);
-
-    impl std::fmt::Debug for SchoolId {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "SchoolId({})", self.inner())
-        }
-    }
-    
-    impl SchoolId {
-        pub fn new(id: Uuid) -> Self {
-            Self(std::sync::RwLock::new(id))
-        }
-    
-        fn inner(&self) -> Uuid {
-            self.0.try_read().map(|g| *g).unwrap_or_default()
-        }
-    
-        fn set(&self, id: Uuid) {
-            if let Ok(mut guard) = self.0.try_write() {
-                *guard = id;
-            }
-        }
-    }
-
-    pub async fn get_school_id(context: &async_graphql::Context<'_>) -> async_graphql::Result<Uuid> {    
-        let uuid = context.data::<SchoolId>().map(|id| id.inner())?;
-        if uuid.is_nil() {
-            let mut db_conn = get_db!(context);
-
-            let Ok(default_school_id) = crate::database::prepared::config::get_default_school_id(&mut db_conn).await else {
-                return Err(async_graphql::Error::new("Failed to get school id"));
-            };
-
-            if let Ok(school_id) = context.data::<SchoolId>() {
-                school_id.set(default_school_id);
-            }
-
-            Ok(default_school_id)
-        } else {
-            Ok(uuid)
-        }
-    }
-
-    pub fn with_school_id(req: async_graphql::Request, school_id: Uuid) -> async_graphql::Request {
-        req.data(SchoolId::new(school_id))
-    }
-}
-
-
-pub use school_id::{ get_school_id, with_school_id };

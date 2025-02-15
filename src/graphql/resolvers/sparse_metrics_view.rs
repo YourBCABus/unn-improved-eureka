@@ -1,12 +1,29 @@
 #![allow(unused_braces)]
 
 use async_graphql::{Lookahead, Result as GraphQlResult};
-use crate::metrics::{Buckets, SparseMetricsView};
+use metrics::{Buckets, SparseMetricsView};
+
+pub struct GraphQlSparseMetricsView(SparseMetricsView);
+impl std::ops::Deref for GraphQlSparseMetricsView {
+    type Target = SparseMetricsView;
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+impl From<SparseMetricsView> for GraphQlSparseMetricsView {
+    fn from(value: SparseMetricsView) -> Self {
+        Self(value)
+    }
+}
+
+struct GraphQlBucketsView<'a>(std::borrow::Cow<'a, Buckets>);
+impl std::ops::Deref for GraphQlBucketsView<'_> {
+    type Target = Buckets;
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
 
 const NS_PER_MS: f64 = 1_000_000.0;
 
 #[async_graphql::Object]
-impl SparseMetricsView {
+impl GraphQlSparseMetricsView {
     /// Mean e2e response time (in ms)
     async fn mean(&self) -> f64 { self.mean / NS_PER_MS }
 
@@ -33,7 +50,7 @@ impl SparseMetricsView {
 
     /// Buckets (min, max, and step) of response time
     #[graphql(complexity = "((end - start) / step) as usize")]
-    async fn buckets(&self, start: f64, end: f64, step: f64) -> GraphQlResult<&Buckets> {
+    async fn buckets(&self, start: f64, end: f64, step: f64) -> GraphQlResult<GraphQlBucketsView<'_>> {
         if start != self.buckets.range.start || end != self.buckets.range.end || step != self.buckets.step {
             Err(format!(
                 "Invalid bucket parameters — expected: ({}, {}, {}), got: ({}, {}, {})",
@@ -41,12 +58,12 @@ impl SparseMetricsView {
                 start, end, step,
             ).into())
         } else {
-            Ok(&self.buckets)
+            Ok(GraphQlBucketsView(std::borrow::Cow::Borrowed(&self.buckets)))
         }
     }
 }
 
-pub fn find_buckets_params_from_lookahead(lookahead: Lookahead<'_>) -> Option<(f64, std::ops::Range<f64>)> {
+pub fn find_buckets_params_from_lookahead(lookahead: &Lookahead<'_>) -> Option<(f64, std::ops::Range<f64>)> {
     use std::collections::HashMap;
     use async_graphql_value::Value as GraphQlValue;
 
@@ -137,11 +154,11 @@ percentiles!(
 
 
 #[async_graphql::Object]
-impl Buckets {
+impl GraphQlBucketsView<'_> {
     async fn values(&self) -> &[f64] { &self.values }
 
-    async fn with_max_of(&self, max: f64) -> Buckets {
-        self.rescale_with_max_of(max)
+    async fn with_max_of(&self, max: f64) -> GraphQlBucketsView<'static> {
+        GraphQlBucketsView(std::borrow::Cow::Owned(self.rescale_with_max_of(max)))
     }
 
     async fn as_entries(&self) -> Vec<BucketEntry> {

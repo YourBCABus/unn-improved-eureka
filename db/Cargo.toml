@@ -1,0 +1,15 @@
+[package]
+name = "db"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "uuid"] }
+
+cfg = { path = "../cfg" }
+
+logging = { path = "../logging" }
+arcs-logging-rs = "^0.2"
+serde_json = "1"
+
+server = { path = "../server" }

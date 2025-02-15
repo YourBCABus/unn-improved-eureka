@@ -1,0 +1,10 @@
+[package]
+name = "logging"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+yenowa-errors = { git = "https://github.com/YourBCABus/yenowa-errors.git", default-features = false, features = ["env", "rustls"]}
+arcs-logging-rs = "^0.2"
+serde = "^1"
+uuid = { version = "1", features = ["v4", "serde"] }

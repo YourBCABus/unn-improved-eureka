@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use improved_eureka::verification::{id_secret::generate_client_keystr, scopes::Scopes};
+use auth::{ client::generate_client_keystr, scopes::Scopes };
 use rpassword::read_password;
 
 fn main() {
@@ -80,7 +80,7 @@ fn main() {
     println!();
     println!("CLIENT_ID='{}';", client_id.as_hyphenated());
     if secret_was_generated {
-        println!("CLIENT_SECRET='{}';", secret);
+        println!("CLIENT_SECRET='{secret}';");
     } else {
         println!("CLIENT_SECRET=<what you just pasted in>;");
     }

@@ -1,10 +1,10 @@
 use async_graphql::Object;
 use async_graphql::{ Error as GraphQlError, Result as GraphQlResult, Context };
 
-use crate::graphql::get_school_id;
 use crate::types::{Teacher, PronounSet, TeacherName, Period};
 
-use super::{ get_db, ensure_auth };
+use db::get_db;
+use auth::ensure_auth;
 
 use uuid::Uuid;
 
@@ -41,7 +41,7 @@ impl Teacher {
         ensure_auth!(ctx, [read_teacher_absence, read_period]);
 
         let mut db_conn = get_db!(ctx);
-        let school_id = get_school_id(ctx).await?;
+        let school_id = graphql::get_school_id(ctx).await?;
 
         let ids = PeriodList::get_by_teacher(school_id, self.get_id(), &mut db_conn)
             .await
@@ -77,11 +77,11 @@ impl Teacher {
 pub struct PeriodList(Vec<Uuid>, Uuid);
 
 
-use crate::database::Ctx;
+use db::Ctx;
 
 impl PeriodList {
     pub async fn get_by_teacher(school_id: Uuid, period_id: Uuid, db: &mut Ctx) -> sqlx::Result<Self> {
-        use crate::database::prepared::absences::get_all_absences_for_teacher;
+        use crate::queries::absences::get_all_absences_for_teacher;
 
         let absences = get_all_absences_for_teacher(db, period_id).await?;
 
@@ -90,7 +90,7 @@ impl PeriodList {
 
     pub async fn get_periods(self, db: &mut Ctx) -> sqlx::Result<Vec<Period>> {
         use std::collections::HashMap;
-        use crate::database::prepared::period::get_all_periods;
+        use crate::queries::period::get_all_periods;
 
         let mut period_map: HashMap<_, _> = get_all_periods(db, self.1).await?
             .into_iter()

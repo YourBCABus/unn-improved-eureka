@@ -1,10 +1,10 @@
 use async_graphql::Context;
 use chrono::NaiveDate;
+use graphql::req_id;
 use uuid::Uuid;
 
 
-use crate::graphql::resolvers::{get_db, run_query};
-use crate::graphql::req_id;
+use db::{ get_db, run_query };
 
 
 use async_graphql::Result as GraphQlResult;
@@ -19,7 +19,7 @@ pub async fn set_teacher_future_absence(
     fully_absent: bool,
     comment: Option<String>,
 ) -> GraphQlResult<bool> {
-    use crate::database::prepared::future_absences::set_future_day as set_future_absence_in_db;
+    use crate::queries::future_absences::set_future_day as set_future_absence_in_db;
 
     let mut db_conn = get_db!(ctx);
 
@@ -40,7 +40,7 @@ pub async fn clear_teacher_future_absence(
     end: Option<NaiveDate>,
     id: Uuid,
 ) -> GraphQlResult<bool> {
-    use crate::database::prepared::future_absences::clear_future_day as clear_future_absence_in_db;
+    use crate::queries::future_absences::clear_future_day as clear_future_absence_in_db;
 
     let mut db_conn = get_db!(ctx);
 
@@ -55,7 +55,7 @@ pub async fn clear_teacher_future_absence(
 pub async fn sync_and_flush_futures(
     ctx: &Context<'_>,
 ) -> GraphQlResult<bool> {
-    use crate::database::prepared::future_absences::flush_today as sync_and_flush_in_db;
+    use crate::queries::future_absences::flush_today as sync_and_flush_in_db;
 
     let mut db_conn = get_db!(ctx);
 

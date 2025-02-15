@@ -1,0 +1,12 @@
+[package]
+name = "cfg"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dotenvy = "0.15"
+arcs-env-rs = "0.1"
+
+logging = { path = "../logging" }
+arcs-logging-rs = "^0.2"
+serde_json = "1"

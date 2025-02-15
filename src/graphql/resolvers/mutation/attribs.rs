@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use async_graphql::Context;
+use graphql::{get_school_id, req_id};
 use sqlx::types::JsonValue;
 
 
 use crate::graphql::resolvers::attribs::Attribs;
-use crate::graphql::resolvers::{ensure_auth, get_db, run_query};
-use crate::graphql::{get_school_id, req_id};
+use db::{ get_db, run_query };
+use auth::ensure_auth;
 
 
 use async_graphql::Result as GraphQlResult;
@@ -73,7 +74,7 @@ pub async fn set_single_attrib(
     key: &str,
     new_value: JsonValue,
 ) -> GraphQlResult<Attribs> {
-    use crate::database::prepared::config::{
+    use crate::queries::config::{
         get_attribs as get_attribs_db,
         set_single_attrib as set_single_attrib_db,
     };
@@ -98,7 +99,7 @@ pub async fn clear_single_attrib(
     ctx: &Context<'_>,
     key: &str,
 ) -> GraphQlResult<Attribs> {
-    use crate::database::prepared::config::{
+    use crate::queries::config::{
         get_attribs as get_attribs_db,
         clear_single_attrib as clear_single_attrib_db,
     };
@@ -123,7 +124,7 @@ pub async fn set_attribs(
     ctx: &Context<'_>,
     attribs: AttribsInner,
 ) -> GraphQlResult<Attribs> {
-    use crate::database::prepared::config::{
+    use crate::queries::config::{
         get_attribs as get_attribs_db,
         set_attribs as set_attribs_db,
     };

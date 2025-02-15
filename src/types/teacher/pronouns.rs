@@ -1,8 +1,11 @@
+use async_graphql::InputObject;
 use serde::{ Serialize, Deserialize };
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow, InputObject)]
+#[graphql(input_name = "PronounSetInput")]
 pub struct PronounSet {
     pub sub: String,
+    #[graphql(name = "obj")]
     pub object: String,
     pub pos_adj: String,
     pub pos_pro: String,
@@ -42,3 +45,5 @@ impl std::fmt::Debug for PronounSet {
         )
     }
 }
+
+

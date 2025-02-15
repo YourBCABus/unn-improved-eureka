@@ -9,7 +9,7 @@ use async_graphql::{
     Error as GraphQlError,
 };
 
-use super::ensure_auth;
+use auth::ensure_auth;
 
 pub type AttribsInner = HashMap<String, JsonValue>;
 
@@ -35,7 +35,7 @@ impl Attribs {
 }
 
 #[Object]
-impl<'a> RawAttribs<'a> {
+impl RawAttribs<'_> {
     async fn get_key(&self, key: String) -> &JsonValue {
         match self.0.0.get(&key) {
             Some(v) => v,

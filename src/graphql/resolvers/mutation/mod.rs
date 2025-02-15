@@ -12,18 +12,15 @@ use async_graphql::{
     Result as GraphQlResult,
 };
 use chrono::NaiveDate;
+use graphql::req_id;
 use uuid::Uuid;
 
-use crate::database::prepared::teacher::get_teacher;
-use crate::graphql::req_id;
-use crate::types::{ Teacher, Period };
 
-use crate::graphql::structs::{
-    GraphQlTeacherName,
-    GraphQlPronounSet, TimeRangeInput,
-};
+use crate::queries::teacher::get_teacher;
+use crate::types::{ Period, PronounSet, Teacher, TeacherName, TimeRange };
 
-use super::{ get_db, run_query, ensure_auth };
+
+use auth::ensure_auth;
 
 /// This is a memberless struct implementing all the mutations for `improved-eureka`.
 /// This includes:
@@ -39,10 +36,10 @@ impl MutationRoot {
     async fn add_teacher(
         &self,
         ctx: &Context<'_>,
-        name: GraphQlTeacherName,
-        pronouns: GraphQlPronounSet,
+        name: TeacherName,
+        pronouns: PronounSet,
     ) -> GraphQlResult<Teacher> {
-        ensure_auth!(ctx, [create_teacher]);
+        auth::ensure_auth!(ctx, [create_teacher]);
 
         teacher_management::add_teacher(ctx, name, pronouns).await
     }
@@ -51,9 +48,9 @@ impl MutationRoot {
         &self,
         ctx: &Context<'_>,
         id: Uuid,
-        name: GraphQlTeacherName,
+        name: TeacherName,
     ) -> GraphQlResult<Teacher> {
-        ensure_auth!(ctx, [write_teacher_name]);
+        auth::ensure_auth!(ctx, [write_teacher_name]);
 
         teacher_management::update_teacher_name(ctx, id, name).await
     }
@@ -62,9 +59,9 @@ impl MutationRoot {
         &self,
         ctx: &Context<'_>,
         id: Uuid,
-        pronouns: GraphQlPronounSet,
+        pronouns: PronounSet,
     ) -> GraphQlResult<Teacher> {
-        ensure_auth!(ctx, [write_teacher_pronouns]);
+        auth::ensure_auth!(ctx, [write_teacher_pronouns]);
 
         teacher_management::update_teacher_pronouns(ctx, id, pronouns).await
     }
@@ -76,16 +73,16 @@ impl MutationRoot {
         periods: Vec<Uuid>,
         fully_absent: bool,
     ) -> GraphQlResult<Teacher> {
-        use crate::database::prepared::absences::update_absences_for_teacher as update_absences_for_teacher_in_db;
+        use crate::queries::absences::update_absences_for_teacher as update_absences_for_teacher_in_db;
 
-        let mut db_conn = get_db!(ctx);
-        ensure_auth!(ctx, [write_teacher_absence]);
+        let mut db_conn = db::get_db!(ctx);
+        auth::ensure_auth!(ctx, [write_teacher_absence]);
 
-        run_query!(
+        db::run_query!(
             db_conn.update_absences_for_teacher_in_db(id, &periods, fully_absent)
             else (req_id(ctx)) "Failed to update absence for teacher {id}: {}"
         )?;
-        run_query!(
+        db::run_query!(
             db_conn.get_teacher(id)
             else (req_id(ctx)) "Failed to refetch updated teacher {id}: {}"
         )
@@ -208,7 +205,7 @@ impl MutationRoot {
         ctx: &Context<'_>,
 
         name: String,
-        default_time: TimeRangeInput,
+        default_time: TimeRange,
     ) -> GraphQlResult<Period> {
         ensure_auth!(ctx, [create_period]);
 
@@ -220,7 +217,7 @@ impl MutationRoot {
         ctx: &Context<'_>,
 
         name: String,
-        default_time: TimeRangeInput,
+        default_time: TimeRange,
     ) -> GraphQlResult<Period> {
         ensure_auth!(ctx, [create_period]);
 
@@ -243,7 +240,7 @@ impl MutationRoot {
         ctx: &Context<'_>,
 
         id: Uuid,
-        time: TimeRangeInput,
+        time: TimeRange,
     ) -> GraphQlResult<Period> {
         ensure_auth!(ctx, [write_period_time]);
 
@@ -254,7 +251,7 @@ impl MutationRoot {
         ctx: &Context<'_>,
 
         id: Uuid,
-        temp_time: TimeRangeInput,
+        temp_time: TimeRange,
     ) -> GraphQlResult<Period> {
         ensure_auth!(ctx, [write_period_temp_time]);
 
@@ -296,7 +293,7 @@ impl MutationRoot {
     ) -> GraphQlResult<String> {
         ensure_auth!(ctx, [admin]);
 
-        let metrics = ctx.data::<crate::state::AppState>()?.metrics();
+        let metrics = ctx.data::<server::AppState>()?.metrics();
 
         if metrics.clear(None).await.is_ok() {
             Ok("Metrics cleared".to_string())

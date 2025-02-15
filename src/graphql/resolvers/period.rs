@@ -5,16 +5,16 @@ use async_graphql::{
     Error as GraphQlError,
     Result as GraphQlResult,
 };
+use graphql::{get_school_id, req_id};
 use uuid::Uuid;
 
 
-use crate::graphql::{get_school_id, req_id};
-use crate::types::{Period, Teacher};
-use crate::database::Ctx;
-use crate::logging::*;
+use crate::types::{Period, Teacher, TimeRange};
+use db::Ctx;
+use logging::*;
 
-use super::TimeRange;
-use super::{ get_db, ensure_auth };
+use db::get_db;
+use auth::ensure_auth;
 
 #[Object]
 impl Period {
@@ -22,10 +22,13 @@ impl Period {
     async fn name(&self) -> &str { &self.name }
 
     async fn default_time_range(&self) -> TimeRange {
-        (self.start, self.end).into()
+        TimeRange { start: self.start, end: self.end }
     }
     async fn time_range(&self) -> TimeRange {
-        (self.temp_start.unwrap_or(self.start), self.temp_end.unwrap_or(self.end)).into()
+        TimeRange {
+            start: self.temp_start.map_or(self.start, Into::into),
+            end: self.temp_start.map_or(self.end, Into::into),
+        }
     }
 
 
@@ -49,7 +52,7 @@ impl Period {
             Ok(ok) => ok,
             Err(e) => {
                 error!("{} - Failed to get absent teacher ids from database {e}", fmt_req_id(req_id));
-                crate::report!("Failed to get absent teacher ids from database": {
+                logging::report!("Failed to get absent teacher ids from database": {
                     "school_id": school_id,
                     "period_id": self.id,
                     "error": e.to_string(),
@@ -62,7 +65,7 @@ impl Period {
             Ok(ok) => Ok(ok),
             Err(e) => {
                 error!("{} - Failed to get absent teachers from database {e}", fmt_req_id(req_id));
-                crate::report!("Failed to get absent teachers from database": {
+                logging::report!("Failed to get absent teachers from database": {
                     "school_id": school_id,
                     "period_id": self.id,
                     "ids": ids.0,
@@ -80,7 +83,7 @@ pub struct TeacherList(Vec<Uuid>, Uuid);
 
 impl TeacherList {
     pub async fn get_by_period(school_id: Uuid, req_id: Uuid, period_id: Uuid, db: &mut Ctx) -> sqlx::Result<Self> {
-        use crate::database::prepared::absences::get_all_absences_for_period;
+        use crate::queries::absences::get_all_absences_for_period;
 
         trace!("{} - Getting absent teachers for period <{}>", fmt_req_id(req_id), period_id);
         let absences = get_all_absences_for_period(db, period_id).await?;
@@ -90,7 +93,7 @@ impl TeacherList {
 
     pub async fn get_teachers(self, req_id: Uuid, db: &mut Ctx) -> sqlx::Result<Vec<Teacher>> {
         use std::collections::HashMap;
-        use crate::database::prepared::teacher::get_all_teachers;
+        use crate::queries::teacher::get_all_teachers;
 
         trace!("{} - Getting the {} teachers inside of this struct", fmt_req_id(req_id), self.0.len());
         let mut teacher_map: HashMap<_, _> = get_all_teachers(db, self.1).await?

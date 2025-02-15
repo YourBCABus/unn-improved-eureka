@@ -7,6 +7,9 @@ use serde::{ Serialize, Deserialize };
 
 use self::pronouns::PronounSet;
 
+use async_graphql::{ InputObject, InputValueError, InputValueResult, Scalar, ScalarType, Value };
+
+
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Honorific {
     Ms, Mx, Mr, Dr, Mrs, Prof,
@@ -94,18 +97,43 @@ impl Display for Honorific {
     }
 }
 
+#[Scalar]
+impl ScalarType for Honorific {
+    fn parse(value: Value) -> InputValueResult<Self> {
+        if let Value::String(value) = &value {
+            if let Some(honorific) = Self::try_from_str(value) {
+                Ok(honorific)
+            } else {
+                Err(InputValueError::custom(format!("Invalid honorific: {value:?}")))
+            }
+        } else {
+            // If the type does not match
+            Err(InputValueError::expected_type(value))
+        }
+    }
+    fn to_value(&self) -> Value {
+        self.str().into()
+    }
+}
 
 
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, InputObject)]
+pub struct MiddleName {
+    pub vis: bool,
+    pub name: String,
+}
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, InputObject)]
+#[graphql(input_name = "TeacherNameInput")]
 pub struct TeacherName {
     pub (super) honorific: Honorific,
     pub (super) first: String,
     pub (super) last: String,
-    pub (super) middle: Vec<(bool, String)>,
+    pub (super) middle: Vec<MiddleName>,
 }
 impl TeacherName {
-    pub fn new(honorific: Honorific, first: String, last: String, middle: Vec<(bool, String)>) -> Self {
+    pub fn new(honorific: Honorific, first: String, last: String, middle: Vec<MiddleName>) -> Self {
         Self { honorific, first, last, middle }
     }
 
@@ -114,11 +142,11 @@ impl TeacherName {
     pub fn get_first(&self) -> &str { &self.first }
     pub fn get_last(&self) -> &str { &self.last }
 
-    pub fn all_middles(&self) -> impl Iterator<Item = (bool, &str)> {
-        self.middle.iter().map(|(display, text)| (*display, text.as_str()))
+    pub fn all_middles(&self) -> impl Iterator<Item = &MiddleName> {
+        self.middle.iter()
     }
-    pub fn visible_middles(&self) -> impl Iterator<Item = &str> {
-        self.middle.iter().filter_map(|(display, text)| display.then_some(text.as_str()))
+    pub fn visible_middles(&self) -> impl Iterator<Item = &'_ str> + '_ {
+        self.middle.iter().filter_map(|middle| middle.vis.then_some(middle.name.as_str()))
     }
 
     pub fn short(&self) -> String {
@@ -129,11 +157,9 @@ impl TeacherName {
     }
     pub fn longest(&self) -> String {
         let mut output = format!("{} {} ", self.honorific, self.first);
-        for (display, name) in self.middle.iter() {
-            if *display {
-                output.push_str(name);
-                output.push(' ');
-            }
+        for name in self.visible_middles() {
+            output.push_str(name);
+            output.push(' ');
         }
         output.push_str(&self.last);
         output
@@ -142,10 +168,8 @@ impl TeacherName {
 impl Debug for TeacherName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{:?}] {:?} ", self.honorific, self.first)?;
-        for (display, name) in self.middle.iter() {
-            if *display {
-                write!(f, "{:?} ", name)?;
-            }
+        for name in self.visible_middles() {
+            write!(f, "{name:?} ")?;
         }
         write!(f, "{}", self.last)?;
         Ok(())
@@ -154,10 +178,8 @@ impl Debug for TeacherName {
 impl Display for TeacherName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {} ", self.honorific, self.first)?;
-        for (display, name) in self.middle.iter() {
-            if *display {
-                write!(f, "{} ", name)?;
-            }
+        for name in self.visible_middles() {
+            write!(f, "{name} ")?;
         }
         write!(f, "{}", self.last)?;
         Ok(())

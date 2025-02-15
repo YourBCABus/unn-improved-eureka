@@ -44,6 +44,14 @@ regex = "1.10.5"
 yenowa-errors = { git = "https://github.com/YourBCABus/yenowa-errors.git", default-features = false, features = ["env", "rustls"]}
 futures = "0.3.31"
 
+logging = { path = "./logging" }
+metrics = { path = "./metrics" }
+db = { path = "./db" }
+cfg = { path = "./cfg" }
+auth = { path = "./auth" }
+graphql = { path = "./graphql" }
+server = { path = "./server" }
+
 [profile.release]
 opt-level = 3
 lto = "thin"

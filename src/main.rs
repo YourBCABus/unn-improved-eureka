@@ -2,16 +2,16 @@ use actix_web::web::Header;
 use actix_web::{HttpServer, web, HttpResponse, http::header::ContentType, Responder};
 
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
-use improved_eureka::verification::{ClientIdHeader, ClientSecretHeader, IdTokenHeader};
-use improved_eureka::graphql::{ with_school_id, IdSecretScopes, IdTokenScopes, Schema };
+use auth::context::ClientInfo;
+use auth::{ ClientIdHeader, ClientSecretHeader, IdTokenHeader};
+use graphql::ExecutorBuilder;
+use improved_eureka::graphql::Schema;
 
-use improved_eureka::logging::*;
-use improved_eureka::report_panics_async;
+use logging::*;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     info!("Server process started");
-
 
     let sender = setup::metrics();
 
@@ -29,10 +29,8 @@ async fn main() -> std::io::Result<()> {
         move || setup::app(schema.clone(), None, sender.clone())
     ).bind(bind_to)?.run();
 
-    let (result, _) = tokio::join!(
-        server,
-        async { info!("Server bound to {}:{}", bind_to.0, bind_to.1); },
-    );
+    info!("Server bound to {}:{}", bind_to.0, bind_to.1);
+    let result = server.await;
 
     clean_up_logging();
     result
@@ -56,8 +54,8 @@ async fn graphql_handler_default(
             client_id,
             client_secret,
             id_token,
-            Uuid::nil(),
-        ).await;
+            None,
+        );
         schema.execute(request).await.into()
     }
 }
@@ -84,38 +82,29 @@ async fn graphql_handler(
             client_id,
             client_secret,
             id_token,
-            info.into_inner(),
-        ).await;
+            Some(info.into_inner()),
+        );
         schema.execute(request).await.into()
     }
 }
 
 
-pub async fn augment_request(
+pub fn augment_request(
     request: async_graphql::Request,
     client_id: Option<Header<ClientIdHeader>>,
     client_secret: Option<Header<ClientSecretHeader>>,
     id_token: Option<Header<IdTokenHeader>>,
-    school_id: Uuid,
+    school_id: Option<Uuid>,
 ) -> async_graphql::Request {
-    use tokio::sync::OnceCell;
-    let request = request
-        .data(OnceCell::<IdSecretScopes>::new())
-        .data(OnceCell::<IdTokenScopes>::new());
-
-    let request = if let (Some(id), Some(secret)) = (client_id, client_secret) {
-        request.data(id.0).data(secret.0)
-    } else {
-        request
-    };
-
-    let request = if let Some(id_token) = id_token {
-        request.data(id_token.0)
-    } else {
-        request
-    };
-    
-    with_school_id(request, school_id)
+    ExecutorBuilder::new(request)
+        .set_school_id(school_id)
+        .data(tokio::sync::OnceCell::<auth::scopes::Scopes>::new())
+        .some_then_data(id_token, |header| header.0)
+        .some_then_data(client_id.zip(client_secret), |(id, secret)| ClientInfo {
+            id: id.0.inner(),
+            secret: secret.0.inner(),
+        })
+        .inner()
 }
 
 
@@ -156,12 +145,12 @@ mod setup {
         dotenvy::dotenv().unwrap();
 
         {
-            use improved_eureka::env::checks::*;
+            use cfg::checks::*;
             main().unwrap();
             sql().unwrap();
         }
 
-        improved_eureka::logging::set_panic_hook();
+        logging::set_panic_hook();
         let max_size = if let Ok(max_size) = std::env::var("LOG_MAX_SIZE") {
             max_size.parse().ok()
         } else {
@@ -177,8 +166,8 @@ mod setup {
     }
 
     /// Gets and starts metrics monitoring
-    pub fn metrics() -> improved_eureka::metrics::MetricProducer {
-        let metrics = improved_eureka::metrics::ResponseTimeMetrics::default();
+    pub fn metrics() -> metrics::MetricProducer {
+        let metrics = metrics::ResponseTimeMetrics::default();
         let sender = metrics.sender();
         
         metrics.spawn();
@@ -188,15 +177,15 @@ mod setup {
 
     /// Gets (and unwraps) the db pool connection
     async fn db() -> sqlx::PgPool {
-        use improved_eureka::database::{ connect_as, unwrap_connection };
+        use db::{ connect_as, unwrap_connection };
 
         let db_conn = connect_as("TableJet Improved Eureka").await;
         unwrap_connection(db_conn).await
     }
 
     /// Gets the graphql schema (with the associated db context) for the server
-    async fn schema(db: sqlx::PgPool, metrics: improved_eureka::metrics::MetricProducer) -> improved_eureka::graphql::Schema {
-        use improved_eureka::state::AppState;
+    async fn schema(db: sqlx::PgPool, metrics: metrics::MetricProducer) -> improved_eureka::graphql::Schema {
+        use server::AppState;
         use improved_eureka::graphql::schema;
 
         let ctx: AppState = AppState::new(db, metrics);
@@ -208,7 +197,7 @@ mod setup {
     /// the application builder.
     pub async fn data(
         save_schema: Option<&str>,
-        metrics: improved_eureka::metrics::MetricProducer,
+        metrics: metrics::MetricProducer,
     ) -> actix_web::web::Data<Schema> {
         let db = db().await;
         let schema = schema(db, metrics).await;
@@ -226,7 +215,7 @@ mod setup {
     /// server down to just 2 values.
     pub async fn get_bind() -> (&'static str, u16) {
         let ip = "0.0.0.0";
-        let port = improved_eureka::env::port_u16_panic().await;
+        let port = cfg::port_u16_panic().await;
         
         (ip, port)
     }
@@ -246,7 +235,7 @@ mod setup {
     use actix_web::dev::{ ServiceFactory, ServiceRequest, ServiceResponse };
     use actix_web::body::MessageBody;
     use actix_web::middleware::NormalizePath;
-    use improved_eureka::metrics::{ MetricProducer, middleware::ResponseTimeRecorder };
+    use metrics::{ MetricProducer, middleware::ResponseTimeRecorder };
 
     /// This function creates an instance of an actix App
     pub fn app(

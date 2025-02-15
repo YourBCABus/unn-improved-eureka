@@ -1,0 +1,38 @@
+[package]
+name = "auth"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["client_gen"]
+client_gen = ["rand"]
+
+[dependencies]
+hex = "0.4"
+hmac = "0.12"
+actix-web = { version = "4", features = ["rustls"] }
+paste = "1"
+
+rand = { version = "0.8", optional = true }
+uuid = { version = "1", features = ["v4", "serde"] }
+
+regex = "1.10.5"
+jsonwebtoken = { version = "9.3.0", default-features = false }
+constant_time_eq = "0.3"
+
+tokio = { version = "1", features = ["macros", "rt", "full"] }
+reqwest = { version = "^0.12.9", features = ["json", "rustls-tls"], default-features = false }
+
+serde = "1"
+serde_json = "1"
+
+async-graphql = { version = "7", features = ["uuid", "chrono", "tokio"] }
+
+logging = { path = "../logging" }
+arcs-logging-rs = "^0.2"
+sha256 = "1"
+
+db = { path = "../db" }
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "uuid"] }
+
+graphql = { path = "../graphql" }
